@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>I/O Configuration</title>
+    <link rel="stylesheet" href="index.css">
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background-color: #2d2d2d;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #404040;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            margin-right: 2rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        select,
+        button {
+            padding: 0.5rem 1rem;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #404040;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #saveBtn,
+        #cancelBtn,
+        #addRowBtn,
+        #addEquipSetBtn {
+            display: none;
+        }
+
+        #saveBtn {
+            background: #2e7d32;
+        }
+
+        #saveBtn:hover:not(:disabled) {
+            background: #388e3c;
+        }
+
+        #cancelBtn {
+            background: #c62828;
+        }
+
+        #cancelBtn:hover {
+            background: #d32f2f;
+        }
+
+        #addRowBtn {
+            background: #1565c0;
+        }
+
+        #addRowBtn:hover {
+            background: #1976d2;
+        }
+
+        #addEquipSetBtn {
+            background: #6a1b9a;
+        }
+
+        #addEquipSetBtn:hover {
+            background: #7b1fa2;
+        }
+
+        .warning-banner {
+            background: #d32f2f;
+            color: white;
+            padding: 0.75rem 1rem;
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .warning-banner.show {
+            display: flex;
+        }
+
+        main {
+            flex: 1;
+            overflow: auto;
+            padding: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #252525;
+            font-size: 0.9rem;
+        }
+
+        th,
+        td {
+            padding: 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid #404040;
+            white-space: nowrap;
+        }
+
+        th {
+            background-color: #333;
+            position: sticky;
+            top: 0;
+            font-weight: 600;
+            z-index: 10;
+        }
+
+        tr:hover {
+            background-color: #2a2a2a;
+        }
+
+        .group-header {
+            background-color: #2d2d2d !important;
+        }
+
+        .group-header:hover {
+            background-color: #353535 !important;
+        }
+
+        .toggle-icon {
+            display: inline-block;
+            width: 1.2rem;
+            text-align: center;
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+
+        .tag-cell {
+            font-family: monospace;
+            color: #4fc3f7;
+        }
+
+        .type-cell {
+            font-weight: bold;
+        }
+
+        .type-DI {
+            color: #81c784;
+        }
+
+        .type-DO {
+            color: #e57373;
+        }
+
+        .type-AI {
+            color: #64b5f6;
+        }
+
+        .type-AO {
+            color: #ffb74d;
+        }
+
+        .edit-input {
+            width: 100%;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            padding: 0.25rem;
+            font-size: 0.85rem;
+        }
+
+        .edit-input:focus {
+            outline: none;
+            border-color: #4fc3f7;
+        }
+
+        .edit-input[style*="border-color: red"] {
+            background-color: #3d1f1f;
+        }
+
+        .edit-input:disabled {
+            background: #2a2a2a;
+            color: #888;
+            cursor: not-allowed;
+        }
+
+        .delete-btn {
+            background: #c62828;
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .delete-btn:hover {
+            background: #d32f2f;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="warning-banner" id="serverWarning">
+        ⚠️ <strong>Warning:</strong> Server appears to be running. Stop the server before making changes.
+    </div>
+    <header>
+        <h1>I/O Configuration</h1>
+        <div class="controls">
+            <label for="systemSelect">System:</label>
+            <select id="systemSelect">
+                <option value="" disabled selected>Loading...</option>
+            </select>
+            <button id="refreshBtn">Refresh</button>
+            <button id="editBtn">Edit</button>
+            <button id="addRowBtn">Add Row</button>
+            <button id="addEquipSetBtn">Add Equipment Set</button>
+            <button id="saveBtn">Save</button>
+            <button id="cancelBtn">Cancel</button>
+        </div>
+    </header>
+    <main>
+        <table id="ioTable">
+            <thead>
+                <tr>
+                    <th>Loc</th>
+                    <th>Sys</th>
+                    <th>Equip</th>
+                    <th>ID</th>
+                    <th>Label</th>
+                    <th>Tag</th>
+                    <th>Signal</th>
+                    <th>Description</th>
+                    <th>State0</th>
+                    <th>Crit0</th>
+                    <th>State1</th>
+                    <th>Crit1</th>
+                    <th>Value</th>
+                    <th>Quality</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Rows will be injected here -->
+            </tbody>
+        </table>
+    </main>
+    <script src="js/IO_config.js"></script>
+</body>
+
+</html>

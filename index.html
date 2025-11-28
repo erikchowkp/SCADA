@@ -1,0 +1,1231 @@
+<!--
+  MCS / PMCS Web SCADA Frontend
+  ├─ Alarm Banner (js/alarmBanner.js)
+  ├─ Equipment Faceplate (js/faceplate.js)
+  ├─ AI Settings Tab (js/ai_setting.js)
+  ├─ System Loader & History (js/main.js)
+  └─ Symbols under /symbols/
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>MCS – Main Control System</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f2f4f8;
+    }
+
+    header {
+      background: #333;
+      color: #fff;
+      padding: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    #alarms {
+      background: #fff3f3;
+      padding: 8px;
+      border-bottom: 1px solid #ccc;
+    }
+
+    #alarms table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    #alarms th,
+    #alarms td {
+      border: 1px solid #ccc;
+      padding: 4px;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #alarmTable tr {
+      height: 28px;
+    }
+
+    #alarmTable td {
+      padding: 2px 4px;
+      line-height: 24px;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      height: 70vh;
+      gap: 8px;
+    }
+
+    .sidebar,
+    .mimic {
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 8px;
+      overflow: auto;
+    }
+
+    footer {
+      background: #ddd;
+      padding: 8px;
+      text-align: center;
+    }
+
+
+    /* Criticality colors */
+    .crit-1 {
+      background: #eab308;
+    }
+
+    /* Minor - Yellow */
+    .crit-2 {
+      background: #f97316;
+    }
+
+    /* Major - Orange */
+    .crit-3 {
+      background: #ef4444;
+    }
+
+    /* Critical - Red */
+
+    /* Cleared but not acknowledged */
+    .cleared-unack {
+      position: relative;
+      background: #088d39;
+      /* base color */
+      animation: blinkGreenBg 1s infinite;
+    }
+
+    /* Animate only the background color, not opacity */
+    @keyframes blinkGreenBg {
+
+      0%,
+      100% {
+        background: #088d39;
+      }
+
+      50% {
+        background: #ffffff;
+      }
+
+      /* blink to white */
+    }
+
+    /* Blinking effect for active unacknowledged */
+    .blink {
+      animation: blinkRow 1s infinite;
+    }
+
+    @keyframes blinkRow {
+      50% {
+        background: #ffffff;
+        ;
+      }
+    }
+
+    .faceplate {
+      position: fixed;
+      width: 360px;
+      background: #f8f8f8;
+      border: 2px solid #444;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      font-family: sans-serif;
+      z-index: 2000;
+      cursor: default;
+    }
+
+    .fp-header {
+      background: #2f4f6f;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 10px;
+      font-weight: bold;
+      cursor: move;
+      /* 👈 show “drag” cursor */
+    }
+
+    .fp-header button {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .fp-tabs {
+      display: flex;
+      border-bottom: 1px solid #aaa;
+      justify-content: flex-start;
+    }
+
+    .fp-tabs button {
+      flex: none;
+      max-width: 180px;
+      padding: 6px;
+      background: #ddd;
+      border: none;
+      cursor: pointer;
+    }
+
+    .fp-tabs button.active {
+      background: #fff;
+      border-bottom: 2px solid #2f4f6f;
+    }
+
+    .fp-tabs button.disabled {
+      background: #eee;
+      color: #999;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .fp-content {
+      padding: 10px;
+      min-height: 120px;
+    }
+
+    .fp-tab.hidden {
+      display: none;
+    }
+
+    .fp-footer {
+      background: #eee;
+      padding: 6px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid #aaa;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .mimic {
+      position: relative;
+    }
+
+    #mimicPanel {
+      position: relative;
+      /* 👈 critical */
+    }
+
+    .fp-indicator {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      margin-right: 6px;
+      border: 1px solid #333;
+      vertical-align: middle;
+    }
+
+    .fp-indicator.normal {
+      background: #22c55e;
+    }
+
+    /* green */
+    .fp-indicator.alarm-red {
+      background: #ef4444;
+    }
+
+    .fp-indicator.alarm-orange {
+      background: #f97316;
+    }
+
+    .fp-indicator.alarm-yellow {
+      background: #eab308;
+    }
+
+    @keyframes blinkRedBox {
+      50% {
+        background: #ef4444;
+      }
+    }
+
+    @keyframes blinkOrangeBox {
+      50% {
+        background: #f97316;
+      }
+    }
+
+    @keyframes blinkYellowBox {
+      50% {
+        background: #eab308;
+      }
+    }
+
+    @keyframes blinkGreenBox {
+      50% {
+        background: #22c55e;
+      }
+    }
+
+    .fp-indicator.blink-red {
+      animation: blinkRedBox 1s infinite;
+    }
+
+    .fp-indicator.blink-orange {
+      animation: blinkOrangeBox 1s infinite;
+    }
+
+    .fp-indicator.blink-yellow {
+      animation: blinkYellowBox 1s infinite;
+    }
+
+    .fp-indicator.blink-green {
+      animation: blinkGreenBox 1s infinite;
+    }
+
+    #alarms {
+      display: flex;
+      /* left + right side by side */
+      justify-content: space-between;
+      align-items: flex-start;
+      background: #fff3f3;
+      border-bottom: 1px solid #ccc;
+      width: 100%;
+      height: 160px;
+      /* fixed banner height */
+      box-sizing: border-box;
+    }
+
+    .alarms-left {
+      flex: 1;
+      /* table uses remaining space */
+    }
+
+    #alarmTable {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    #alarmTable th,
+    #alarmTable td {
+      border: 1px solid #ccc;
+      height: 28px;
+      padding: 4px;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+    }
+
+    #alarmTable thead th {
+      background-color: #c9c9c9;
+      /* light grey */
+      font-weight: bold;
+    }
+
+    .alarms-right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 8px;
+    }
+
+    #btn-eventlist {
+      border: none;
+      background: none;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    #btn-alarmlist {
+      border: none;
+      background: none;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    #mimicToolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #e5e5e5;
+      /* light grey bar */
+      border-bottom: 1px solid #aaa;
+      padding: 4px 10px;
+      font-weight: bold;
+    }
+
+    #mimicToolbar button {
+      margin: 0 4px;
+      padding: 2px 8px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .toolbar-left,
+    .toolbar-center,
+    .toolbar-right {
+      display: flex;
+      align-items: center;
+    }
+
+    .toolbar-center {
+      flex: 1;
+      justify-content: center;
+      /* title centered */
+    }
+
+    #btn-options {
+      font-size: 14px;
+    }
+
+    #faceplate-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      /* dimmed background */
+      z-index: 1900;
+      /* below faceplate */
+    }
+
+    /* Alarm counters */
+    #alarmCounters {
+      display: inline-block;
+      margin-left: 10px;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+    }
+
+    .counter-header,
+    .counter-row {
+      display: flex;
+      align-items: center;
+      margin: 2px 0;
+    }
+
+    .counter-header span,
+
+    .counter-row span {
+      display: inline-block;
+      text-align: center;
+      min-width: 40px;
+      padding: 0px 0px;
+      font-weight: bold;
+    }
+
+    .counter-header span {
+      background: #ddd;
+      border: 0px solid #555;
+      border-bottom: none;
+      font-weight: bold;
+      font-size: 11px;
+      background: transparent;
+      /* no extra box */
+      border: none;
+    }
+
+    .counter-row.label {
+      min-width: 40px;
+      text-align: left;
+      border: none;
+    }
+
+    .box {
+      border: 0px solid #555;
+      border-top: none;
+      background: #fff;
+    }
+
+    .box.red {
+      background: #ef4444;
+      color: #fff;
+      border-color: #ef4444;
+    }
+
+    .box.orange {
+      background: #f97316;
+      color: #fff;
+      border-color: #f97316;
+    }
+
+    .box.yellow {
+      background: #eab308;
+      color: #000;
+      border-color: #eab308;
+    }
+
+    .override-flag {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: yellow;
+      border: 1px solid red;
+      color: red;
+      font-weight: bold;
+      font-size: 10px;
+      padding: 0 3px;
+      border-radius: 3px;
+      z-index: 1000;
+      line-height: 1;
+      pointer-events: none;
+    }
+
+    #mimic-wrapper {
+      position: relative;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div>PMCS – Plant Monitoring & Control System</div>
+    <div>User: TC | <span id="clock"></span></div>
+  </header>
+
+  <!-- Alarm Banner -->
+  <div id="alarms">
+    <div class="alarms-left">
+      <table id="alarmTable">
+        <thead>
+          <tr>
+            <th style="width:230px;">Time</th>
+            <th style="width:50px;">Loc</th>
+            <th style="width:50px;">Sys</th>
+            <th style="width:100px;">Label</th>
+            <th>Description</th>
+            <th style="width:150px;">Status</th>
+            <th style="width:50px;">Ack</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id="alarmCounters">
+      <div class="counter-header">
+        <span class="label"></span>
+        <span>Total</span>
+        <span>Super</span>
+        <span>Critical</span>
+        <span>Warn</span>
+      </div>
+      <div class="counter-row">
+        <span class="label">Un Ack</span>
+        <span id="unackTotal" class="box">0</span>
+        <span id="unackSuper" class="box red">0</span>
+        <span id="unackCritical" class="box orange">0</span>
+        <span id="unackWarning" class="box yellow">0</span>
+      </div>
+      <div class="counter-row">
+        <span class="label">All</span>
+        <span id="allTotal" class="box">0</span>
+        <span id="allSuper" class="box red">0</span>
+        <span id="allCritical" class="box orange">0</span>
+        <span id="allWarning" class="box yellow">0</span>
+      </div>
+    </div>
+
+
+
+
+    <div class="alarms-right">
+
+      <button id="btn-alarmlist" title="Alarm List" onclick="SCADA.UI.openAlarmList()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24">
+          <rect x="2" y="2" width="20" height="20" rx="2" ry="2" fill="white" stroke="#333" stroke-width="2" />
+          <rect x="6" y="7" width="12" height="2" fill="#ef4444" /> <!-- red -->
+          <rect x="6" y="11" width="12" height="2" fill="#f97316" /> <!-- orange -->
+          <rect x="6" y="15" width="12" height="2" fill="#eab308" /> <!-- yellow -->
+        </svg>
+      </button>
+
+      <button id="btn-eventlist" title="Event List" onclick="SCADA.UI.openEventList()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24">
+          <rect x="2" y="2" width="20" height="20" rx="2" ry="2" fill="white" stroke="#333" stroke-width="2" />
+          <rect x="6" y="7" width="12" height="2" fill="#228B22" />
+          <rect x="6" y="11" width="12" height="2" fill="#228B22" />
+          <rect x="6" y="15" width="12" height="2" fill="#228B22" />
+        </svg>
+      </button>
+
+    </div>
+  </div>
+  <div id="mimicToolbar">
+    <div class="toolbar-left">
+      <button id="btn-back">◀ Backward</button>
+      <button id="btn-forward">Forward ▶</button>
+    </div>
+    <div class="toolbar-center">
+      <span id="mimicTitle">System Title</span>
+    </div>
+    <div id="options-menu" style="position:relative; display:inline-block;">
+      <button id="btn-options">Options ▾</button>
+      <div id="options-dropdown" style="display:none; position:absolute; right:0; background:#333; color:#fff;
+                border:1px solid #444; border-radius:4px; min-width:160px; z-index:9999;">
+        <div class="option-item" data-action="diagnostics" style="padding:6px 10px; cursor:pointer;">Diagnostics Console
+        </div>
+        <!-- Future menu items can be added here -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('btn-options').addEventListener('click', () => {
+      const dd = document.getElementById('options-dropdown');
+      dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+    });
+    window.addEventListener('click', (e) => {
+      if (!e.target.closest('#options-menu')) {
+        document.getElementById('options-dropdown').style.display = 'none';
+      }
+    });
+  </script>
+
+
+
+
+  <!-- === Dynamic Mimic Loader (Phase 6A) === -->
+  <main style="display:flex; flex:1; overflow:hidden;">
+
+    <div class="sidebar">
+      <h4>Location</h4>
+      <button onclick="selectLocation('NBT')" disabled>NBT</button>
+      <button onclick="selectLocation('SBT')">SBT</button>
+    </div>
+
+    <div class="mimic" id="mimic-wrapper" style="position:relative; flex:1; overflow:hidden;">
+      <!-- === Phase 7.4: Dynamic Loader Integration === -->
+      <div id="mimic-container" style="width:100%;height:100%;"></div>
+      <script>
+        document.addEventListener("DOMContentLoaded", () => {
+          // Load initial system (TRA / NBT)
+          SCADA.Core.Loader.loadSystem("TRA", "NBT");
+        });
+      </script>
+
+
+      <!-- Global Equipment Faceplate -->
+      <div id="faceplate" class="faceplate hidden">
+
+        <div class="fp-header">
+          <span id="fp-title">Equipment</span>
+          <button onclick="SCADA.UI.Faceplate.close()">×</button>
+        </div>
+
+        <div class="fp-tabs">
+          <button onclick="SCADA.UI.Faceplate.showTab('status')" class="active">Status</button>
+          <button onclick="SCADA.UI.Faceplate.showTab('control')">Control</button>
+          <button onclick="SCADA.UI.Faceplate.showTab('advance')">Advance</button>
+          <button onclick="SCADA.UI.Faceplate.showTab('setting')">Setting</button>
+        </div>
+
+        <div class="fp-content">
+
+          <div id="tab-status" class="fp-tab">
+            <div id="fp-points"></div>
+            <div style="margin-top:8px; text-align:right;">
+              <button id="fp-ack-page">Ack Page</button>
+            </div>
+            <div style="text-align:right; font-size:12px; color:#666; margin-top:8px;">
+              Last update: <span id="fp-ts">--</span>
+            </div>
+          </div>
+
+          <div id="tab-control" class="fp-tab hidden">
+            <button id="fp-start">Start</button>
+            <button id="fp-stop">Stop</button>
+          </div>
+
+          <div id="tab-advance" class="fp-tab hidden">
+            <h3 style="margin: 0 0 10px;">Advanced Options</h3>
+
+            <label for="ovrPoint" style="display:block; font-weight:600; margin:10px 0 4px;">Select Point</label>
+            <select id="ovrPoint" style="width:100%; padding:6px;"></select>
+
+            <h4 style="margin:16px 0 6px; color:#333;">Manual Override</h4>
+
+            <label style="display:block; font-weight:600; margin:0 0 4px;">Override Value</label>
+            <div id="ovrValue" style="width:100%;"></div>
+
+            <div style="display:flex; gap:8px; margin-top:12px;">
+              <button id="applyOverrideBtn" class="btn-primary">Apply Override</button>
+              <button id="clearOverrideBtn" class="btn-secondary">Clear Override</button>
+            </div>
+
+            <p id="ovrHint" style="margin-top:10px; font-size:12px; color:#666;">
+              When override is set, the SCADA value will hold and ignore PLC updates until cleared.
+            </p>
+          </div>
+
+          <div id="tab-setting" class="fp-tab hidden">
+            <h3 style="margin:0 0 10px;">AI Alarm Settings</h3>
+            <p style="font-size:13px;color:#444;">Adjust alarm trigger thresholds for analogue points.</p>
+
+            <label style="font-weight:bold;">Select AI Point:</label>
+            <select id="aiSettingSelect" style="width:100%;margin-bottom:10px;"></select>
+
+            <table style="width:100%;border-collapse:collapse;">
+              <tr>
+                <th style="text-align:left;">Threshold</th>
+                <th style="text-align:left;">Value</th>
+                <th>Enable</th>
+              </tr>
+
+              <tr>
+                <td>Low-Low:</td>
+                <td><input id="aiLL" type="number" style="width:100%;"></td>
+                <td><input type="checkbox" id="chkLL"></td>
+              </tr>
+
+              <tr>
+                <td>Low:</td>
+                <td><input id="aiLow" type="number" style="width:100%;"></td>
+                <td><input type="checkbox" id="chkLow"></td>
+              </tr>
+
+              <tr>
+                <td>Warn (Low):</td>
+                <td><input id="aiWarnLow" type="number" style="width:100%;"></td>
+                <td><input type="checkbox" id="chkWarnLow"></td>
+              </tr>
+
+              <tr>
+                <td>Warn (High):</td>
+                <td><input id="aiWarn" type="number" style="width:100%;"></td>
+                <td><input type="checkbox" id="chkWarn"></td>
+              </tr>
+
+              <tr>
+                <td>High:</td>
+                <td><input id="aiHigh" type="number" style="width:100%;"></td>
+                <td><input type="checkbox" id="chkHigh"></td>
+              </tr>
+
+              <tr>
+                <td>High-High:</td>
+                <td><input id="aiHH" type="number" style="width:100%;"></td>
+                <td><input type="checkbox" id="chkHH"></td>
+              </tr>
+            </table>
+
+            <div style="margin-top:10px;text-align:right;">
+              <button id="saveAISettingsBtn">Save Settings</button>
+            </div>
+
+          </div>
+
+        </div>
+
+        <div class="fp-footer">
+          <button onclick="SCADA.UI.Faceplate.close()">Exit</button>
+          <div id="aiSettingMsg" style="margin-top:0px;font-size:10px;font-weight:bold;"></div>
+        </div>
+
+      </div>
+
+
+    </div>
+  </main>
+
+  <!-- === Footer: System selector === -->
+  <footer id="system-nav" class="system-footer">
+    <button onclick="loadSelectedSystem('TRA')">TRA</button>
+    <button onclick="loadSelectedSystem('VENT')">VENT</button>
+    <button onclick="loadSelectedSystem('FIRE')">FIRE</button>
+    <button id="btn-trend" onclick="SCADA.Core.Loader.loadSystem('TREND', null)">Trend</button>
+  </footer>
+
+  <div id="faceplate-overlay" style="display:none;"></div>
+</body>
+<!-- === Core Framework === -->
+<script src="js/core/namespace.js"></script>
+<script src="js/core/config.js"></script>
+<script src="js/core/timerManager.js"></script>
+<script src="js/pollManager.js"></script>
+<script src="js/core/socketManager.js"></script>
+<script src="js/core/alarmManager.js"></script>
+<script src="js/core/loader.js"></script>
+<script src="js/highlight.js"></script>
+<script src="js/core/naming.js"></script>
+<script src="js/ui/connectionStatus.js"></script>
+<script src="js/core/metrics.js"></script>
+<!-- === Phase 8.2: Diagnostics Console === -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="js/ui/diagnostics.js"></script>
+
+
+
+<!-- === Reusable Symbol Components === -->
+<script src="symbols/baseSymbol.js"></script>
+<script src="symbols/pump.js"></script>
+<script src="symbols/selector.js"></script>
+<script src="symbols/pit.js"></script>
+<script src="symbols/ai_textb.js"></script>
+
+<!-- === Modular UI Logic === -->
+<script src="js/faceplate.js"></script>
+<script src="js/alarmBanner.js"></script>
+<script src="js/ai_setting.js"></script>
+<script src="js/core/override.js"></script>
+
+<!-- === Mimic Mapping / Navigation === -->
+<script src="js/mimicMap.js"></script>
+<script src="js/core/mimicNav.js"></script>
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    if (window.SCADA?.Core?.SocketManager) {
+      SCADA.Core.SocketManager.subscribe('system:NBT', () => { });
+      SCADA.Core.SocketManager.subscribe('system:SBT', () => { });
+      SCADA.Core.SocketManager.subscribe('alarms', () => { });
+      SCADA.Core.SocketManager.subscribe('events', () => { });
+      console.log('📡 Subscribed to NBT/SBT/alarms/events via SocketManager');
+    } else {
+      console.warn('SocketManager not found – check script tag path/order.');
+    }
+  });
+</script>
+
+
+<script>
+  // === Phase 5: SCADA Namespace Bootstrap ===
+  window.SCADA = window.SCADA || { Core: {}, Symbols: {}, UI: {}, State: {} };
+
+  ; (function (SCADA, global) {
+    const Core = SCADA.Core = SCADA.Core || {};
+    const UI = SCADA.UI = SCADA.UI || {};
+    const State = SCADA.State = SCADA.State || {};
+
+
+    // === Start SCADA Core Polling Loop ===
+    if (window.SCADA?.Core?.PollManager) {
+      SCADA.Core.PollManager.start();
+    }
+    // --- Title Map (centralised) ---
+    window.titleMap = {
+      "alarm": "Alarm List",
+      "event": "Event List",
+      "TREND": "Trend Viewer",
+      "NBT_TRA": "NBT - Northbound Tunnel Low Point Sump",
+      "SBT_TRA": "SBT - Southbound Tunnel Low Point Sump",
+      "VENT": "VENT – Tunnel Ventilation Fans",
+      "FIRE": "FIRE – Fire Alarm & Detection System"
+  
+    };
+
+
+    // Clock
+    setInterval(() => {
+      document.getElementById("clock").innerText = new Date().toLocaleTimeString();
+    }, 1000);
+
+    // --- Common helper: stop all periodic refresh timers (via TimerManager) ---
+    function stopAllRefreshTimers() {
+      const TM = SCADA?.Core?.TimerManager;
+      if (!TM) return;
+
+      // Clear known repeating tasks
+      ["AlarmRefresh", "EventRefresh", "SystemRefresh", "GlobalEventRefresh"].forEach(name => {
+        if (TM.has?.(name)) {
+          TM.clear(name);
+          console.log(`🟢 Cleared ${name} (via TimerManager)`);
+        }
+      });
+
+      // Let Events module perform any extra teardown it owns
+      if (SCADA?.UI?.Events?.stopRefresh) SCADA.UI.Events.stopRefresh();
+    }
+
+
+
+    State.currentLocation = "NBT";
+
+
+    function selectLocation(loc) {
+      State.currentLocation = loc;
+      console.log("Location selected:", loc);
+
+      const allLocBtns = document.querySelectorAll(".sidebar button");
+      allLocBtns.forEach(btn => btn.disabled = false);
+
+      // Disable the matching button by its text
+      const match = Array.from(allLocBtns).find(b => b.textContent.trim() === loc);
+      if (match) match.disabled = true;
+    }
+
+
+    // --- Dynamic System Loader ---  
+    async function selectSystem(sys) {
+      // Unified timer cleanup
+      stopAllRefreshTimers();
+
+      try {
+        // ✅ load from /system/ folder
+        let fileName = sys;
+        if (State.currentLocation && sys !== "event") {
+          fileName = State.currentLocation + "_" + sys;
+        }
+        const frame = document.getElementById("mimic-frame");
+        if (!frame) {
+          console.warn("⚠️ mimic-frame not found in selectSystem()");
+          return;
+        }
+
+        // clear any old highlight registrations
+        if (SCADA?.Core?.Highlight?.clear) SCADA.Core.Highlight.clear();
+
+        // set iframe source
+        frame.src = `systems/${fileName}.html`;
+
+        // 🧭 update title immediately
+        const titleEl = document.getElementById("mimicTitle");
+        if (titleEl && window.titleMap) {
+          titleEl.textContent = window.titleMap[fileName] || fileName;
+        }
+
+        // record to history
+        recordMimic(fileName, () => {
+          const frame = document.getElementById("mimic-frame");
+          if (frame) frame.src = `systems/${fileName}.html`;
+          const titleEl = document.getElementById("mimicTitle");
+          if (titleEl && window.titleMap)
+            titleEl.textContent = window.titleMap[fileName] || fileName;
+        });
+
+
+        console.log(`System ${sys} loaded`);
+
+        const fileAtClick = fileName;
+
+        const locAtClick = State.currentLocation;
+        const sysAtClick = sys;
+
+      } catch (err) {
+        document.getElementById("mimicPanel").innerHTML =
+          `<p style="color:red">Failed to load ${sys} HMI</p>`;
+        console.error("System load error:", err);
+      }
+
+
+    }
+
+    // Load a mimic by its full file name (e.g. "SBT_TRA"), bypassing currentLocation logic.
+    async function selectMimicFile(fullName) {
+      try {
+        const frame = document.getElementById("mimic-frame");
+        if (!frame) {
+          console.warn("⚠️ mimic-frame not found in selectMimicFile()");
+          return;
+        }
+
+        // stop all running refresh timers
+        stopAllRefreshTimers();
+
+        // clear previous highlights
+        if (SCADA?.Core?.Highlight?.clear) SCADA.Core.Highlight.clear();
+
+        // load mimic into iframe
+        frame.src = `systems/${fullName}.html`;
+
+        // 🧭 update title right away
+        const titleEl = document.getElementById("mimicTitle");
+        if (titleEl && window.titleMap)
+          titleEl.textContent = window.titleMap[fullName] || fullName;
+
+        // record navigation in history
+        recordMimic(fullName, () => {
+          const frame = document.getElementById("mimic-frame");
+          if (frame) frame.src = `systems/${fullName}.html`;
+          const titleEl = document.getElementById("mimicTitle");
+          if (titleEl && window.titleMap)
+            titleEl.textContent = window.titleMap[fullName] || fullName;
+        });
+
+      } catch (err) {
+        document.getElementById("mimicPanel").innerHTML =
+          `<p style="color:red">Failed to load ${fullName} HMI</p>`;
+        console.error("selectMimicFile load error:", err);
+      }
+    }
+
+
+    // For command buttons inside system files
+    async function sendCmd(tag, value) {
+      await fetch("/api/plc_write", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tag, value })
+      });
+    }
+    // Expose command API to namespace (Phase 5)
+    Core.sendCmd = sendCmd;
+
+
+    // --- Alarm List ---
+    async function openAlarmList() {
+      stopAllRefreshTimers();
+      window.__lastHistoryKey = null; // allow next mimic to record fresh
+      try {
+        const container = document.getElementById("mimic-container");
+        if (!container) throw new Error("No mimic-container found");
+
+        // Remove any old iframe first
+        container.innerHTML = "";
+
+        // ✅ Create new iframe for alarm.html
+        const frame = document.createElement("iframe");
+        frame.src = "alarm.html";
+        frame.id = "mimic-frame";
+        frame.style.cssText = "width:100%;height:100%;border:none;";
+        container.appendChild(frame);
+
+
+        // ✅ Update title bar (use titleMap)
+        const titleEl = document.getElementById("mimicTitle");
+        if (titleEl) {
+          titleEl.textContent = window.titleMap?.alarm || "Alarm List";
+          // keep alarm filter marker available
+          let alarmMarker = titleEl.querySelector('#alarm-filter-indicator');
+          if (!alarmMarker) {
+            alarmMarker = document.createElement('span');
+            alarmMarker.id = 'alarm-filter-indicator';
+            alarmMarker.style.color = 'red';
+            alarmMarker.style.marginLeft = '8px';
+            alarmMarker.textContent = '(Filtered)';
+            alarmMarker.style.display = 'none';
+            titleEl.appendChild(alarmMarker);
+          }
+        }
+
+
+        // ✅ Record in history so Back works
+        recordMimic("alarm", openAlarmList);
+
+        // When user presses Back, the previous mimic loaderFn from history will run automatically
+      } catch (err) {
+        console.error("Alarm list load error:", err);
+        const frame = document.getElementById("mimic-frame");
+        if (frame?.contentDocument?.body)
+          frame.contentDocument.body.innerHTML = `<p style="color:red">Failed to load alarm list</p>`;
+      }
+    }
+
+    // --- Event List ---
+    async function openEventList() {
+      stopAllRefreshTimers();
+      window.__lastHistoryKey = null; // allow next mimic to record fresh
+      try {
+        const container = document.getElementById("mimic-container");
+        if (!container) throw new Error("No mimic-container found");
+
+        // Remove any old iframe first
+        container.innerHTML = "";
+
+        // ✅ Create new iframe for event.html
+        const frame = document.createElement("iframe");
+        frame.src = "event.html";
+        frame.id = "mimic-frame";
+        frame.style.cssText = "width:100%;height:100%;border:none;";
+        container.appendChild(frame);
+
+
+        // ✅ Update title bar
+        const titleEl = document.getElementById("mimicTitle");
+        if (titleEl) titleEl.textContent = window.titleMap?.event || "Event List";
+
+        // ✅ Record in history so Back works
+        recordMimic("event", openEventList);
+
+      } catch (err) {
+        console.error("Event list load error:", err);
+        const frame = document.getElementById("mimic-frame");
+        if (frame?.contentDocument?.body)
+          frame.contentDocument.body.innerHTML = `<p style="color:red">Failed to load event list</p>`;
+      }
+    }
+
+    // --- Mimic Navigation History ---
+    let mimicHistory = [];
+    let mimicIndex = -1;
+    let isNavigatingHistory = false;
+
+    // Record a new mimic load into history
+    function recordMimic(name, loaderFn) {
+      if (isNavigatingHistory) return;
+
+      // 🛡 Prevent duplicates — ignore if same as current
+      const current = mimicHistory[mimicIndex];
+      if (current && current.name === name) return;
+
+      // trim forward stack
+      mimicHistory = mimicHistory.slice(0, mimicIndex + 1);
+
+      mimicHistory.push({
+        name,
+        loaderFn,
+        title: window.titleMap?.[name] || name
+      });
+
+      mimicIndex = mimicHistory.length - 1;
+      updateNavButtons();
+    }
+
+
+    function navigateHistory(step) {
+      const newIndex = mimicIndex + step;
+      if (newIndex < 0 || newIndex >= mimicHistory.length) return;
+      mimicIndex = newIndex;
+      const item = mimicHistory[mimicIndex];
+      if (item && typeof item.loaderFn === "function") {
+        const frame = document.getElementById("mimic-frame");
+        if (!frame) {
+          console.warn("⚠️ No mimic-frame found during navigateHistory");
+          return;
+        }
+        isNavigatingHistory = true;
+        try {
+          // 🛡 Guard BEFORE running loader so Loader won't re-record this entry
+          window.__lastHistoryKey = item.name;
+
+          // run loader (mimic OR alarm/event)
+          item.loaderFn();
+
+          // --- Force sync title from titleMap ---
+          const titleEl = document.getElementById("mimicTitle");
+          if (titleEl) {
+            titleEl.textContent = (window.titleMap && window.titleMap[item.name]) || item.name;
+          }
+        } catch (err) {
+          console.error("⚠️ History loaderFn failed:", err);
+        }
+
+
+        setTimeout(() => { isNavigatingHistory = false; }, 200);
+      }
+
+      updateNavButtons();
+    }
+
+    function updateNavButtons() {
+      document.getElementById("btn-back").disabled = (mimicIndex <= 0);
+      document.getElementById("btn-forward").disabled = (mimicIndex >= mimicHistory.length - 1);
+    }
+
+    // Attach handlers to toolbar buttons
+    document.getElementById("btn-back").onclick = () => navigateHistory(-1);
+    document.getElementById("btn-forward").onclick = () => navigateHistory(1);
+
+    updateNavButtons();
+
+    // ----------------------------------------------------
+    // Expose UI functions for other pages or buttons
+    // ----------------------------------------------------
+    UI.selectSystem = selectSystem;
+    UI.selectLocation = selectLocation;
+    UI.openAlarmList = openAlarmList;
+    UI.openEventList = openEventList;
+    UI.selectMimicFile = selectMimicFile;
+    UI.recordMimic = recordMimic;
+
+  })(window.SCADA = window.SCADA || { Core: {}, Symbols: {}, UI: {}, State: {} }, window);
+  // === Listen for mimic ready events from iframe ===
+  window.addEventListener("message", (event) => {
+    if (event.data?.type === "mimicReady") {
+      // Wait a short moment for all symbols to finish registering
+      setTimeout(() => {
+        if (window.__highlightEquipKey && SCADA?.Core?.Highlight?.equipIfPending) {
+          SCADA.Core.Highlight.equipIfPending();
+        }
+      }, 200);
+    }
+  });
+
+  // =====================================================
+  // 🔧 SCADA.UI.updateFilterMarker(page, hasFilter)
+  // -----------------------------------------------------
+  // page: "alarm", "event", "trend", etc.
+  // hasFilter: true → show marker, false → hide
+  // This keeps one visible marker per page and hides others.
+  // =====================================================
+  if (!window.SCADA) window.SCADA = {};
+  if (!SCADA.UI) SCADA.UI = {};
+
+  SCADA.UI.updateFilterMarker = function (page, hasFilter) {
+    const titleEl = document.getElementById("mimicTitle");
+    if (!titleEl) return;
+
+    const markers = {
+      alarm: "alarm-filter-indicator",
+      event: "event-filter-indicator"
+    };
+
+    // Ensure all markers exist but hidden
+    Object.entries(markers).forEach(([key, id]) => {
+      let span = titleEl.querySelector(`#${id}`);
+      if (!span) {
+        span = document.createElement("span");
+        span.id = id;
+        span.style.color = "red";
+        span.style.marginLeft = "8px";
+        span.textContent = "(Filtered)";
+        span.style.display = "none";
+        titleEl.appendChild(span);
+      }
+      // Hide all markers first
+      span.style.display = "none";
+    });
+
+    // Show only the active one if required
+    const activeId = markers[page];
+    if (hasFilter && activeId) {
+      const active = titleEl.querySelector(`#${activeId}`);
+      if (active) active.style.display = "inline";
+    }
+  };
+
+
+</script>
+<script>
+  function selectLocation(loc) {
+    console.log(`📍 Location selected → ${loc}`);
+    SCADA.State.selectedLocation = loc;
+
+    // Highlight active button
+    document.querySelectorAll('.sidebar button').forEach(b => b.disabled = false);
+    event.target.disabled = true;
+  }         
+</script>
+<script>
+  function loadSelectedSystem(sysType) {
+    const loc = SCADA.State.selectedLocation;
+    if (!loc) {
+      alert("Please select a location (NBT / SBT) first.");
+      return;
+    }
+
+    // clear refresh timers and highlights if needed
+    if (SCADA?.Core?.TimerManager) {
+      ["AlarmRefresh", "EventRefresh", "SystemRefresh", "GlobalEventRefresh"].forEach(name => {
+        const TM = SCADA.Core.TimerManager;
+        if (TM.has?.(name)) TM.clear(name);
+      });
+    }
+    if (SCADA?.Core?.Highlight?.clear) SCADA.Core.Highlight.clear();
+
+    // call Loader
+    SCADA.Core.Loader.loadSystem(sysType, loc);
+  }
+</script>
+
+</body>
+
+</html>

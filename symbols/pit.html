@@ -1,0 +1,42 @@
+<div class="pit-wrapper" style="position: relative; display: inline-block;">
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 100 220"
+     width="200" height="300"
+     class="pit">
+
+
+  <!-- Water fill (dynamic height) -->
+  <rect class="pit-fill" x="10" y="200" width="100" height="0" fill="#1ea8ff"/>
+
+  <!-- Tank outline -->
+  <rect x="10" y="0" width="100" height="200" stroke="#333" stroke-width="3" fill="none"/>
+
+  <!-- High sensor marker -->
+  <line x1="10" y1="60" x2="110" y2="60" stroke="#666" stroke-dasharray="4"/>
+  <text x="60" y="55" text-anchor="middle" font-size="10" fill="#666">High</text>
+
+  <!-- High-High sensor marker -->
+  <line x1="10" y1="20" x2="110" y2="20" stroke="#666" stroke-dasharray="4"/>
+  <text x="60" y="15" text-anchor="middle" font-size="10" fill="#666">HH</text>
+
+<style>
+  /* Base colors */
+  .pit .pit-fill { transition: fill 0.3s; }
+  .pit.normal .pit-fill { fill: #088d39; }
+.pit.high .pit-fill   { fill: #f97316; }
+.pit.hh .pit-fill     { fill: #ef4444; }
+
+@keyframes blink-green { 0%,100%{fill:#088d39} 50%{fill:#fff} }
+@keyframes blink-orange{ 0%,100%{fill:#f97316} 50%{fill:#fff} }
+@keyframes blink-red   { 0%,100%{fill:#ef4444} 50%{fill:#fff} }
+
+.pit.normal-blink .pit-fill { animation: blink-green 1s infinite; }
+.pit.high-blink   .pit-fill { animation: blink-orange 1s infinite; }
+.pit.hh-blink     .pit-fill { animation: blink-red 1s infinite; }
+
+</style>
+
+
+</svg>
+
+</div>

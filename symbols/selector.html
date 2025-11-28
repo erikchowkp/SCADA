@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 80" width="150" height="70" class="selector auto">
+  <!-- Outline -->
+  <rect x="5" y="5" width="130" height="70" rx="8" ry="8" fill="#eee" stroke="#333" stroke-width="3"/>
+  
+    <!-- Knob -->
+  <circle cx="30" cy="30" r="10" class="knob"/>
+
+  <!-- Labels -->
+  <text x="15" y="58" font-size="14" font-weight="bold" class="label-left">Auto</text>
+  <text x="80" y="58" font-size="14" font-weight="bold" class="label-right">Manual</text>
+  
+
+</svg>
+
+<style>
+  .selector .knob { fill:#ccc; transition: all .3s; pointer-events:none; }
+  /* Auto/Manual */
+  .selector.auto   .knob { fill:#22c55e; transform: translateX(0); }
+  .selector.manual .knob { fill:#facc15; transform: translateX(75px); }
+  /* Remote/Local */
+  .selector.remote .knob { fill:#22c55e; transform: translateX(0); }
+  .selector.local  .knob { fill:#fb923c; transform: translateX(70px); }
+
+  /* Label emphasis */
+  .selector text { fill:#919191; }
+  .selector.auto   .label-left,
+  .selector.remote .label-left  { font-weight:bold; fill:#111; }
+  .selector.manual .label-right,
+  .selector.local  .label-right { font-weight:bold; fill:#111; }
+</style>

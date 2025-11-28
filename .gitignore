@@ -1,0 +1,29 @@
+# Node modules
+node_modules/
+
+# Logs and temporary files
+*.log
+*.lock
+server.lock
+
+# Database files (too large for GitHub)
+db/
+
+# Event logs (these can get large)
+events.json
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local

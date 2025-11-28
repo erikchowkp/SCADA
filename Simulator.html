@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SCADA – Simulator Hub</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --bg:#0b1220; --panel:#101826; --line:#223; --text:#e5e7eb; --muted:#9aa4b2; --accent:#38bdf8;
+    }
+    body{margin:0;font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
+    .wrap{max-width:900px;margin:40px auto;padding:0 16px}
+    h1{margin:0 0 8px;color:var(--accent);font-weight:700}
+    p{color:var(--muted);margin:0 0 20px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+    .card h2{margin:0 0 6px;font-size:18px}
+    .card p{margin:0 0 12px;font-size:14px}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    a.btn{display:inline-block;padding:8px 12px;border-radius:8px;border:1px solid var(--line);color:var(--text);text-decoration:none;background:#172033}
+    a.btn:hover{border-color:#3a4a66}
+    .muted{color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Simulator Hub</h1>
+    <p>Launch a specific system simulator in a new tab. Your HMIs remain in <code>/systems/</code>; simulators live in <code>/simulators/</code>.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h2>NBT LPS</h2>
+        <p class="muted">Northbound Tunnel – Local Pump Station simulator.</p>
+        <div class="row">
+          <a class="btn" href="simulators/NBT_LPS.html" target="_blank">Open Simulator</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>SBT LPS</h2>
+        <p class="muted">Southbound Tunnel – Local Pump Station simulator.</p>
+        <div class="row">
+          <a class="btn" href="simulators/SBT_LPS.html" target="_blank">Open (placeholder)</a>
+        </div>
+      </div>
+
+      <!-- Add more systems later as needed -->
+    </div>
+  </div>
+</body>
+</html>

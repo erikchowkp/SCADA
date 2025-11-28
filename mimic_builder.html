@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mimic Editor</title>
+    <link rel="stylesheet" href="css/mimic_builder.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="header-left">
+                <h1>Mimic Editor</h1>
+            </div>
+            <div class="header-controls">
+                <input type="file" id="loadFileInput" accept=".html" style="display: none;">
+                <button id="loadBtn" class="secondary-btn">Load Page</button>
+                <button id="generateBtn" class="primary-btn">Generate Page</button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <aside class="sidebar left-sidebar">
+                <div class="sidebar-section">
+                    <h3>Symbols</h3>
+                    <div id="symbolList" class="tool-list">
+                        <!-- Symbols will be loaded here -->
+                        <div class="loading">Loading symbols...</div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Static Elements</h3>
+                    <div class="tool-list">
+                        <div class="tool-item" draggable="true" data-type="static-text">
+                            <span class="icon">T</span> Text Label
+                        </div>
+                        <div class="tool-item" draggable="true" data-type="static-line">
+                            <span class="icon">/</span> Line
+                        </div>
+                        <div class="tool-item" draggable="true" data-type="static-arrow">
+                            <span class="icon">→</span> Arrow
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <section class="canvas-area">
+                <div id="mimicCanvas" class="mimic-canvas">
+                    <!-- Dropped elements will appear here -->
+                </div>
+            </section>
+
+            <aside class="sidebar right-sidebar">
+                <div class="sidebar-section">
+                    <h3>Properties</h3>
+                    <div id="propertiesPanel" class="properties-content">
+                        <div class="empty-state">Select an element to edit properties</div>
+                    </div>
+                </div>
+                <div class="sidebar-section">
+                    <h3>Page Settings</h3>
+                    <div class="form-group">
+                        <label>Location (LOC)</label>
+                        <input type="text" id="pageLoc" placeholder="e.g. NBT">
+                    </div>
+                    <div class="form-group">
+                        <label>System (SYS)</label>
+                        <input type="text" id="pageSys" placeholder="e.g. TRA">
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <!-- Templates for Properties -->
+    <template id="symbol-props-template">
+        <div class="form-group">
+            <label>ID</label>
+            <input type="text" data-prop="id" disabled>
+        </div>
+        <div class="form-group">
+            <label>System</label>
+            <select data-prop="systemSelect">
+                <option value="">Select System...</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Equipment</label>
+            <select data-prop="equipSelect" disabled>
+                <option value="">Select Equipment...</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Tag Preview</label>
+            <div class="tag-preview" data-prop="tagPreview">-</div>
+        </div>
+    </template>
+
+    <template id="text-props-template">
+        <div class="form-group">
+            <label>Text Content</label>
+            <input type="text" data-prop="text">
+        </div>
+        <div class="form-group">
+            <label>Font Size (px)</label>
+            <input type="number" data-prop="fontSize" value="12">
+        </div>
+        <div class="form-group">
+            <label>Color</label>
+            <input type="color" data-prop="color" value="#000000">
+        </div>
+        <div class="form-group">
+            <label>Font Weight</label>
+            <select data-prop="fontWeight">
+                <option value="normal">Normal</option>
+                <option value="bold">Bold</option>
+            </select>
+        </div>
+    </template>
+
+    <template id="line-props-template">
+        <div class="form-group">
+            <label>Length (px)</label>
+            <input type="number" data-prop="width" min="10">
+        </div>
+        <div class="form-group">
+            <label>Thickness (px)</label>
+            <input type="number" data-prop="height" min="1" max="20">
+        </div>
+        <div class="form-group">
+            <label>Color</label>
+            <input type="color" data-prop="backgroundColor" value="#000000">
+        </div>
+        <div class="form-group">
+            <label>Rotation (deg)</label>
+            <input type="number" data-prop="rotation" value="0">
+        </div>
+    </template>
+
+    <script src="js/mimic_builder.js"></script>
+</body>
+
+</html>

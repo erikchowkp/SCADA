@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Alarm List</title>
+<style>
+ html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+#alarmPage {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  width: 100%;
+}
+
+#alarmListContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+
+#alarmFilter {
+  width: 280px;
+  background: #f4f4f4;
+  border-left: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+}
+
+#alarmFilter {
+  width: 280px;
+  background: #f4f4f4;
+  border-left: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+}
+
+#alarmList table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+#alarmList > div {
+  margin-top: auto;
+  text-align: right;
+  padding-top: 6px;
+}
+
+
+#alarmListContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+
+#alarmList {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  color: #000;
+  font-family: Arial, sans-serif;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+#alarmFilter {
+  width: 280px;
+  background: #f4f4f4;
+  border-left: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+}
+
+#alarmList th, #alarmList td { padding: 6px 10px; border: 1px solid #7b7b7b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#alarmList th { background: #c9c9c9; }
+  #alarmList th:nth-child(1), 
+  #alarmList td:nth-child(1) { width: 200px; } /* Time */
+  #alarmList th:nth-child(2), 
+  #alarmList td:nth-child(2) { width: 50px; }  /* Loc */
+  #alarmList th:nth-child(3), 
+  #alarmList td:nth-child(3) { width: 50px; }  /* Sys */
+  #alarmList th:nth-child(4), 
+  #alarmList td:nth-child(4) { width: 70px; } /* Label */
+  #alarmList th:nth-child(5), 
+  #alarmList td:nth-child(5) { width: auto; }  /* Description = flexible */
+  #alarmList th:nth-child(6), 
+  #alarmList td:nth-child(6) { width: 120px; } /* Status */
+  #alarmList th:nth-child(7), 
+  #alarmList td:nth-child(7) { width: 60px; }  /* Ack */
+#alarmList tr:hover {
+  background-color: #f0f0f0;
+}
+
+.filter-tabs {
+    display: flex;
+    margin-bottom: 6px;
+  }
+
+  .filter-tabs button {
+    flex: 1;
+    padding: 4px;
+    margin-right: 2px;
+    border: 1px solid #aaa;
+    background: #e5e5e5;
+    cursor: pointer;
+    min-height: 40px;
+  }
+  .filter-tabs button.active {
+    background: #fff;
+    font-weight: bold;
+  }
+
+  .filter-pane {
+    margin-top: 8px;
+  }
+
+  .filter-section {
+    flex: none;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    background: #fff;
+    padding: 4px;
+  }
+
+  .filter-section h4 {
+    margin: 0 0 4px 0;
+    font-size: 12px;
+    background: #ddd;
+    padding: 2px;
+  }
+
+  .filter-list {
+    max-height: 100px;
+    overflow-y: auto;
+    font-size: 12px;
+  }
+
+  .filter-actions {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+  }
+  .filter-actions button {
+    flex: 1;
+    margin: 2px;
+  }
+
+  .filter-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* 2 columns */
+  gap: 4px 8px;
+  max-height: 100px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.sort-list {
+  display: flex;
+  flex-direction: column;  /* stack rows vertically */
+  gap: 6px;                /* add spacing between rows */
+}
+
+.sort-list label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.sort-list select {
+  flex: 1;
+  margin-left: 8px;
+}
+
+
+.blink-red    { animation: blink-red 1s infinite; }
+.blink-orange { animation: blink-orange 1s infinite; }
+.blink-yellow { animation: blink-yellow 1s infinite; }
+.blink-green  { animation: blink-green 1s infinite; }
+
+@keyframes blink-red    { 0%,100% { background-color: #ef4444; } 50% { background-color: white; } }
+@keyframes blink-orange { 0%,100% { background-color: #f97316; } 50% { background-color: white; } }
+@keyframes blink-yellow { 0%,100% { background-color: #eab308; } 50% { background-color: white; } }
+@keyframes blink-green  { 0%,100% { background-color: #088d39;} 50% { background-color: white; } }
+
+/* Selected row style */
+#alarmListTable tr.selected {
+  background-color: navy !important;
+  color: white !important;
+}
+
+#alarmListTable td {
+  cursor: default;  /* arrow cursor instead of I-beam */
+}
+</style>
+</head>
+<body>
+<div id="alarmPage">
+  <!-- LEFT: Alarm table -->
+  <div id="alarmListContainer">
+    <div id="alarmList">
+      <table id="alarmListTable">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Loc</th>
+            <th>Sys</th>
+            <th>Label</th>
+            <th>Description</th>
+            <th>Status</th>
+            <th>Ack</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    <div style="margin-top:8px; text-align:right;">
+        <button id="ackSelectedBtn">Ack Selected</button>
+        <button id="ackAllBtn">Ack All</button>
+    </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: Filter panel -->
+  <div id="alarmFilter">
+
+    <div class="filter-tabs">
+      <button data-pane="crit">Criticality</button>
+      <button data-pane="loc">Loc.</button>
+      <button data-pane="time">Time</button>      
+      <button data-pane="sys" class="active">Sys.</button>
+      <button data-pane="sort">Sort</button>
+    </div>
+
+    <div class="filter-panes">
+      <!-- Criticality filter -->
+      <div class="filter-pane" data-pane="crit" style="display:none;">
+        <h4>Criticality</h4>
+        <div class="filter-list">
+          <label><input type="checkbox" value="SUPER CRITICAL"> Super Critical</label>
+          <label><input type="checkbox" value="CRITICAL"> Critical</label>
+          <label><input type="checkbox" value="WARNING"> Warning</label>
+        </div>
+        <h5 style="margin-top:8px;">Acknowledgement</h5>
+        <div class="filter-list">
+          <label><input type="checkbox" value="ACK"> Acknowledged</label>
+          <label><input type="checkbox" value="UNACK"> Unacknowledged</label>
+        </div>
+      </div>
+
+      <!-- System filter -->
+      <div class="filter-pane" data-pane="sys" style="display:block;">
+        <h4>System</h4>
+        <div class="filter-list">
+          <label><input type="checkbox" value="TRA"> TRA</label>
+          <label><input type="checkbox" value="VENT"> VENT</label>
+          <label><input type="checkbox" value="FIRE"> FIRE</label>
+        </div>
+      </div>
+
+      <!-- Location filter -->
+      <div class="filter-pane" data-pane="loc" style="display:none;">
+        <h4>Location</h4>
+        <div class="filter-list">
+          <label><input type="checkbox" value="STA1"> STA1</label>
+          <label><input type="checkbox" value="STA2"> STA2</label>
+          <label><input type="checkbox" value="NBT"> NBT</label>
+        </div>
+      </div>
+
+      <!-- Time filter -->
+      <div class="filter-pane" data-pane="time" style="display:none;">
+        <h4>Time Range</h4>
+        <label>From: <input type="datetime-local" id="timeFilterFrom"></label>
+        <label>To: <input type="datetime-local" id="timeFilterTo"></label>
+      </div>
+
+      <!-- Sort filter -->
+      <div class="filter-pane" data-pane="sort" style="display:none;">
+        <h4>Sort Order</h4>
+        <div class="sort-list">
+          <label>
+            1st:
+            <select id="sort1">
+              <option value="">-- None --</option>
+              <option value="time">Time</option>
+              <option value="loc">Location</option>
+              <option value="sys">System</option>
+              <option value="label">Label</option>
+              <option value="description">Description</option>
+              <option value="status">Status</option>
+              <option value="ack">Ack</option>
+            </select>
+            <select id="sortDir1">
+              <option value="desc">↓</option>
+              <option value="asc">↑</option>
+            </select>
+          </label>
+          <label>
+            2nd:
+            <select id="sort2">
+              <option value="">-- None --</option>
+              <option value="time">Time</option>
+              <option value="loc">Location</option>
+              <option value="sys">System</option>
+              <option value="label">Label</option>
+              <option value="description">Description</option>
+              <option value="status">Status</option>
+              <option value="ack">Ack</option>
+            </select>
+            <select id="sortDir2">
+              <option value="asc">↑</option>
+              <option value="desc">↓</option>
+            </select>
+          </label>
+          <label>
+            3rd:
+            <select id="sort3">
+              <option value="">-- None --</option>
+              <option value="time">Time</option>
+              <option value="loc">Location</option>
+              <option value="sys">System</option>
+              <option value="label">Label</option>
+              <option value="description">Description</option>
+              <option value="status">Status</option>
+              <option value="ack">Ack</option>
+            </select>
+            <select id="sortDir3">
+              <option value="asc">↑</option>
+              <option value="desc">↓</option>
+            </select>
+          </label>
+        </div>
+        <p style="font-size:11px;color:#555;margin-top:4px;">
+          Select at least one column. Sorting is applied in order of priority.
+        </p>
+      </div>
+
+    </div>
+
+    <div class="filter-actions">
+        <button onclick="SCADA.UI.Alarms.applyFilters()">Apply</button>
+        <button onclick="SCADA.UI.Alarms.resetFilters()">Reset</button>
+    </div>
+      <span id="alarmCount" style="margin-top:4px; font-size:12px; color:#333; text-align:right;"></span>
+  </div>
+</div>
+
+<script>
+
+// --- Ensure connection to parent namespace (Phase 6 iframe mode) ---
+if (window.parent && window.parent.SCADA) {
+  window.SCADA = window.parent.SCADA;
+  console.log("✅ Linked SCADA namespace from parent (iframe mode)");
+} else {
+  window.SCADA = window.SCADA || { Core:{}, UI:{}, Symbols:{}, State:{} };
+  console.warn("⚠️ Running standalone (no parent SCADA found)");
+}
+
+// === Phase 4: Ensure SCADA.UI.Alarms namespace ===
+window.SCADA = window.SCADA || {};
+SCADA.UI = SCADA.UI || {};
+SCADA.UI.Alarms = SCADA.UI.Alarms || {};
+
+
+(function (SCADA, global) {
+
+// === Persistent Alarm Filter Storage ===
+function loadSavedAlarmFilters() {
+  try {
+    const saved = localStorage.getItem("SCADA_AlarmFilters");
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveAlarmFilters() {
+  try {
+    localStorage.setItem("SCADA_AlarmFilters", JSON.stringify(window.currentAlarmFilters));
+  } catch (e) {
+    console.warn("⚠️ Could not save alarm filters:", e);
+  }
+}
+
+
+let selectedAlarmTags = new Set();   // track multiple selected alarms
+window.currentAlarmFilters =
+  loadSavedAlarmFilters() || {
+    systems: [], locations: [], criticality: [], ack: [],
+    time: { from: null, to: null },
+    sort: [{ key: "time", dir: "desc" }]
+  };
+
+const currentAlarmFilters = window.currentAlarmFilters;
+
+function critLabel(code) {
+  switch(code) {
+    case 3: return "SUPER CRITICAL";
+    case 2: return "CRITICAL";
+    case 1: return "WARNING";
+    default: return "";
+  }
+}
+
+async function loadAlarms() {
+  try {
+    const table = document.getElementById("alarmListTable");
+    // ✅ Stop early if user navigated away (no table present)
+    if (!table || !document.body.contains(table)) {
+      console.log("🟡 Alarm list DOM missing — stopping AlarmRefresh loop");
+      if (SCADA?.Core?.TimerManager?.has("AlarmRefresh")) {
+        SCADA.Core.TimerManager.clear("AlarmRefresh");
+      }
+      return;
+    }
+
+    const res = await fetch("/api/alarms");
+    const alarms = await res.json();
+    renderalarmListTable(alarms);
+
+
+  } catch (err) {
+    console.error("Alarm load error:", err);
+  }
+}
+
+
+function renderalarmListTable(alarms) {
+
+  // One-time delegated dblclick handler (attach only once)
+  if (!window.__alarmDelegatedDblClick) {
+    const table = document.getElementById("alarmListTable");
+    if (table) {
+      table.addEventListener("dblclick", (e) => {
+        const tr = e.target.closest("tr[data-tag]");
+        if (!tr) return;
+        const tag = tr.dataset.tag;
+        const loc = tr.dataset.loc;
+        const sys = tr.querySelector("td:nth-child(3)")?.textContent || "";
+
+        const key = `${(loc||"").toUpperCase()}-${(sys||"").toUpperCase()}-${tr.querySelector("td:nth-child(4)")?.textContent.toUpperCase()}`;
+        window.__highlightEquipKey = key;
+        const mapped = (SCADA?.Core?.MimicMap && SCADA.Core.MimicMap[key]) ? SCADA.Core.MimicMap[key] : null;
+        if (mapped && typeof SCADA?.UI?.selectMimicFile === "function") { 
+          SCADA.UI.selectMimicFile(mapped); 
+        }
+
+      });
+    }
+    window.__alarmDelegatedDblClick = true;
+  }
+
+
+  let filtered = alarms;
+  if (currentAlarmFilters.systems.length)
+    filtered = filtered.filter(a => currentAlarmFilters.systems.includes((a.sys||"").toUpperCase()));
+  if (currentAlarmFilters.locations.length)
+    filtered = filtered.filter(a => currentAlarmFilters.locations.includes((a.loc||"").toUpperCase()));
+  if (currentAlarmFilters.criticality.length)
+    filtered = filtered.filter(a => currentAlarmFilters.criticality.includes(critLabel(a.crit)));
+  if (currentAlarmFilters.ack.length)
+    filtered = filtered.filter(a => currentAlarmFilters.ack.includes(a.ack ? "ACK" : "UNACK"));
+  // --- Time filter (compare string or Date correctly) ---
+  if (currentAlarmFilters.time.from || currentAlarmFilters.time.to) {
+    const from = currentAlarmFilters.time.from ? new Date(currentAlarmFilters.time.from) : null;
+    const to   = currentAlarmFilters.time.to   ? new Date(currentAlarmFilters.time.to)   : null;
+
+    filtered = filtered.filter(a => {
+      const ts = new Date(a.time);
+      if (isNaN(ts)) return false;
+      if (from && ts < from) return false;
+      if (to && ts > to) return false;
+      return true;
+    });
+  }
+
+
+  filtered.sort((a,b)=>{
+    for (let {key,dir} of currentAlarmFilters.sort) {
+      let av=a[key]||"", bv=b[key]||"";
+      if (key==="time"){ av=new Date(av); bv=new Date(bv); }
+      else { av=av.toString().toUpperCase(); bv=bv.toString().toUpperCase(); }
+      if (av<bv) return dir==="asc"?-1:1;
+      if (av>bv) return dir==="asc"?1:-1;
+    }
+    return 0;
+  });
+
+
+  const tbody = document.querySelector("#alarmListTable tbody");
+
+  // 🚩 Clear old rows safely — removes listeners and DOM nodes
+  if (tbody) tbody.replaceChildren();
+  filtered.forEach(a => {
+
+    const tr=document.createElement("tr");
+    tr.dataset.tag = a.tag;   // store tag for later
+    tr.dataset.loc = a.loc;   // 🔹 also store location
+
+    const critText=critLabel(a.crit);
+
+// Cleared + Unack → blink green
+if (!a.ack && a.state === "Cleared") {
+  tr.classList.add("blink-green");
+}
+// Active + Unack → blink in criticality color
+else if (!a.ack && a.state === "Active") {
+  if (critText === "SUPER CRITICAL") tr.classList.add("blink-red");
+  else if (critText === "CRITICAL")   tr.classList.add("blink-orange");
+  else if (critText === "WARNING")    tr.classList.add("blink-yellow");
+}
+// Otherwise → static color
+else {
+  if (critText === "SUPER CRITICAL") tr.style.backgroundColor = "#ef4444";
+  else if (critText === "CRITICAL")  tr.style.backgroundColor = "#f97316";
+  else if (critText === "WARNING")   tr.style.backgroundColor = "#eab308";
+}
+    tr.innerHTML=`
+      <td>${a.time||""}</td>
+      <td>${a.loc||""}</td>
+      <td>${a.sys||""}</td>
+      <td>${a.label||""}</td>
+      <td>${a.description||""}</td>
+      <td>${a.status||""}</td>
+      <td>${a.ack?"Ack":"Unack"}</td>`;
+    
+     // Make row navigable by double-click
+    tr.style.cursor = "pointer";
+    tr.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+
+      const key = `${(a.loc || "").toUpperCase()}-${(a.sys || "").toUpperCase()}-${(a.label || "").toUpperCase()}`;
+      if (window.parent) window.parent.__highlightEquipKey = key;
+      else window.__highlightEquipKey = key;
+
+      const mapped = (SCADA?.Core?.MimicMap && SCADA.Core.MimicMap[key]) ? SCADA.Core.MimicMap[key] : null;
+
+      if (mapped && typeof SCADA?.UI?.selectMimicFile === "function") {
+        console.log("Alarm dblclick mapped", key, "->", mapped);
+        SCADA.UI.selectMimicFile(mapped);
+      } else if (typeof SCADA?.UI?.selectSystem === "function") {
+        console.log("Alarm dblclick fallback", key);
+        SCADA.UI.selectSystem((a.sys || "").toUpperCase());
+      }
+
+    });
+
+
+
+
+
+      // Restore selection if this tag was already selected
+      const key = `${a.loc}:${a.tag}`;
+      if (selectedAlarmTags.has(key)) {
+        tr.classList.add("selected");
+      }
+
+      // Selection of row 
+        tr.addEventListener("click", (e) => {
+            const isCtrl = e.ctrlKey || e.metaKey;
+
+            const key = `${tr.dataset.loc}:${tr.dataset.tag}`;
+            if (isCtrl) {
+              if (selectedAlarmTags.has(key)) {
+                selectedAlarmTags.delete(key);
+                tr.classList.remove("selected");
+              } else {
+                selectedAlarmTags.add(key);
+                tr.classList.add("selected");
+              }
+            } else {
+              selectedAlarmTags.clear();
+              selectedAlarmTags.add(key);
+              tbody.querySelectorAll("tr.selected").forEach(r => r.classList.remove("selected"));
+              tr.classList.add("selected");
+            }
+
+            });
+
+            
+  
+    tbody.appendChild(tr);
+    
+  });
+
+  document.getElementById("alarmCount").innerText = `${filtered.length} alarms shown`;
+}
+
+function applyAlarmFilters(){
+  const panel=document.getElementById("alarmPage");
+  // --- Multi-sort logic (like Event List) ---
+  const s1 = panel.querySelector('#sort1').value;
+  const d1 = panel.querySelector('#sortDir1').value;
+  const s2 = panel.querySelector('#sort2')?.value || "";
+  const d2 = panel.querySelector('#sortDir2')?.value || "";
+  const s3 = panel.querySelector('#sort3')?.value || "";
+  const d3 = panel.querySelector('#sortDir3')?.value || "";
+
+  currentAlarmFilters.sort = [];
+  if (s1) currentAlarmFilters.sort.push({ key: s1, dir: d1 });
+  if (s2) currentAlarmFilters.sort.push({ key: s2, dir: d2 });
+  if (s3) currentAlarmFilters.sort.push({ key: s3, dir: d3 });
+
+
+  currentAlarmFilters.systems = [...panel.querySelectorAll('.filter-pane[data-pane="sys"] input:checked')]
+   .map(cb => cb.value.toUpperCase());
+
+  currentAlarmFilters.locations = [...panel.querySelectorAll('.filter-pane[data-pane="loc"] input:checked')]
+    .map(cb => cb.value.toUpperCase());
+
+  const critTicks = [...panel.querySelectorAll('.filter-pane[data-pane="crit"] input[type=checkbox]:checked')]
+    .map(cb => cb.value.toUpperCase());
+
+  currentAlarmFilters.criticality=critTicks.filter(v=>["SUPER CRITICAL","CRITICAL","WARNING"].includes(v));
+  currentAlarmFilters.ack=critTicks.filter(v=>["ACK","UNACK"].includes(v));
+  const from=panel.querySelector('#timeFilterFrom').value, to=panel.querySelector('#timeFilterTo').value;
+  currentAlarmFilters.time.from = from || null;
+  currentAlarmFilters.time.to   = to   || null;
+  updateAlarmFilterMarker();
+  loadAlarms();
+  saveAlarmFilters();
+
+}
+
+function resetAlarmFilters(){
+  currentAlarmFilters.systems=[];
+  currentAlarmFilters.locations=[];
+  currentAlarmFilters.criticality=[];
+  currentAlarmFilters.ack=[];
+  currentAlarmFilters.time={from:null,to:null};
+  currentAlarmFilters.sort=[{key:"time",dir:"desc"}];
+
+  const panel=document.getElementById("alarmPage");
+  panel.querySelectorAll('#alarmFilter input[type=checkbox]').forEach(cb=>cb.checked=false);
+  panel.querySelector('#timeFilterFrom').value="";
+  panel.querySelector('#timeFilterTo').value="";
+  panel.querySelector('#sort1').value="time";
+  panel.querySelector('#sortDir1').value="desc";
+  updateAlarmFilterMarker();
+  loadAlarms();
+  saveAlarmFilters();
+
+}
+
+function setAlarmPane(pane){
+  const panel=document.getElementById("alarmPage");
+  const buttons=panel.querySelectorAll('#alarmFilter .filter-tabs button');
+  const panes=panel.querySelectorAll('#alarmFilter .filter-pane');
+  const valid=["loc","time","sys","crit","sort"];
+  if(!valid.includes(pane)) pane="crit";
+  buttons.forEach(b=>b.classList.toggle('active', b.dataset.pane===pane));
+  panes.forEach(p=>p.style.display=(p.dataset.pane===pane)?'block':'none');
+}
+function initAlarmFilterTabs(){
+  const panel=document.getElementById("alarmPage");
+  const buttons=panel.querySelectorAll('#alarmFilter .filter-tabs button');
+  buttons.forEach(btn=>{
+    btn.onclick=()=>{ window.currentAlarmFilters.activePane=btn.dataset.pane; setAlarmPane(window.currentAlarmFilters.activePane); };
+  });
+  setAlarmPane(window.currentAlarmFilters?.activePane||"crit");
+}
+
+function syncAlarmFilters(){
+  const panel=document.getElementById("alarmPage");
+  if (!panel) return;
+
+  // Crit + Ack
+  panel.querySelectorAll('.filter-pane[data-pane="crit"] input[type=checkbox]')
+    .forEach(cb=>{
+      const v = cb.value.toUpperCase();
+      cb.checked = currentAlarmFilters.criticality.includes(v) || currentAlarmFilters.ack.includes(v);
+    });
+
+  // Loc
+  panel.querySelectorAll('.filter-pane[data-pane="loc"] input[type=checkbox]')
+    .forEach(cb=>{
+      cb.checked = currentAlarmFilters.locations.includes(cb.value.toUpperCase());
+    });   
+
+  // Time
+  const from=panel.querySelector("#timeFilterFrom");
+  const to=panel.querySelector("#timeFilterTo");
+  if (from) {
+    const f = currentAlarmFilters.time.from;
+    from.value = f ? (typeof f === "string" ? f.slice(0,16) : f.toISOString().slice(0,16)) : "";
+  }
+  if (to) {
+    const t = currentAlarmFilters.time.to;
+    to.value = t ? (typeof t === "string" ? t.slice(0,16) : t.toISOString().slice(0,16)) : "";
+  }
+
+
+  // Sys
+  panel.querySelectorAll('.filter-pane[data-pane="sys"] input[type=checkbox]')
+    .forEach(cb=>{
+      cb.checked = currentAlarmFilters.systems.includes(cb.value.toUpperCase());
+    });
+
+  // Sort
+  ["sort1","sort2","sort3"].forEach((id, i) => {
+    const keySel = panel.querySelector("#" + id);
+    const dirSel = panel.querySelector("#sortDir" + (i+1));
+    if (keySel) keySel.value = currentAlarmFilters.sort[i]?.key || "";
+    if (dirSel) dirSel.value = currentAlarmFilters.sort[i]?.dir || "asc";
+  });
+
+
+  updateAlarmFilterMarker();   // ✅ keep marker in sync
+}
+
+function updateAlarmFilterMarker() {
+  const hasFilter =
+    currentAlarmFilters.systems.length > 0 ||
+    currentAlarmFilters.locations.length > 0 ||
+    currentAlarmFilters.criticality.length > 0 ||
+    currentAlarmFilters.ack.length > 0 ||
+    currentAlarmFilters.time.from ||
+    currentAlarmFilters.time.to;
+
+  // Use the shared helper in the parent
+  window.parent?.SCADA?.UI?.updateFilterMarker("alarm", hasFilter);
+}
+
+
+
+function initAckButtons() {
+  // Ack Selected
+    const selBtn = document.getElementById("ackSelectedBtn");
+    if (selBtn) {
+    selBtn.onclick = async (e) => {
+        e.stopPropagation(); // prevent document click from clearing selection
+
+        const tags = Array.from(selectedAlarmTags); // snapshot BEFORE any async/clears
+        if (tags.length === 0) {
+        alert("No alarms selected.");
+        return;
+        }
+
+        try {
+        for (const tr of document.querySelectorAll("#alarmListTable tr.selected")) {
+          const tag = tr.dataset.tag;
+          const loc = tr.dataset.loc;
+          await fetch("/api/alarms/ack", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tag, loc })
+          });
+        }
+
+        selectedAlarmTags.clear();
+        loadAlarms();
+        } catch (err) {
+        console.error("Ack Selected error:", err);
+        }
+    };
+    }
+
+
+  // Ack All (your fixed version)
+  const allBtn = document.getElementById("ackAllBtn");
+  if (allBtn) {
+    allBtn.onclick = async () => {
+      try {
+        allBtn.disabled = true;
+        const res = await fetch("/api/alarms");
+        const alarms = await res.json();
+        const unack = alarms.filter(a => !a.ack && (a.state === "Active" || a.state === "Cleared"));
+        for (const a of unack) {
+          await fetch("/api/alarms/ack", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tag: a.tag, loc: a.loc })
+          });
+        }
+
+        loadAlarms();
+      } catch (err) {
+        console.error("Ack All error:", err);
+      } finally {
+        allBtn.disabled = false;
+      }
+    };
+  }
+}
+
+// ✅ run immediately after injection
+initAckButtons();
+
+// Deselect when clicking outside the alarm table
+document.addEventListener("click", (e) => {
+  const table = document.getElementById("alarmListTable");
+  if (!table) return;
+
+  if (table.contains(e.target)) return;
+
+  // clicked on Ack buttons? keep selection
+  if (e.target.closest("#ackSelectedBtn, #ackAllBtn")) return;
+
+  table.querySelectorAll("tr.selected").forEach(r => r.classList.remove("selected"));
+  selectedAlarmTags.clear();
+});
+
+
+
+loadAlarms();
+initAlarmFilterTabs();
+syncAlarmFilters();  // ✅ visually restore checkboxes/time/sort on page load
+updateAlarmFilterMarker(); 
+
+// ✅ Phase 6 fix: iframe-safe AlarmRefresh loop
+if (SCADA?.Core?.TimerManager) {
+  SCADA.Core.TimerManager.clear("AlarmRefresh");
+  SCADA.Core.TimerManager.register(
+    "AlarmRefresh",
+    setInterval(() => {
+      const table = document.getElementById("alarmListTable");
+      if (table && document.body.contains(table)) {
+        loadAlarms(); // simpler call
+      } else {
+        console.log("🟡 Alarm table gone — clearing AlarmRefresh timer");
+        SCADA.Core.TimerManager.clear("AlarmRefresh");
+      }
+    }, 2000)
+  );
+} else {
+  // fallback if TimerManager not ready
+  if (window._alarmFallbackTimer) clearInterval(window._alarmFallbackTimer);
+  window._alarmFallbackTimer = setInterval(loadAlarms, 2000);
+}
+
+
+// --- Register under SCADA.UI.Alarms ---
+SCADA.UI.Alarms.load = loadAlarms;
+SCADA.UI.Alarms.applyFilters = applyAlarmFilters;
+SCADA.UI.Alarms.resetFilters = resetAlarmFilters;
+SCADA.UI.Alarms.initTabs = initAlarmFilterTabs;
+SCADA.UI.Alarms.syncFilters = syncAlarmFilters;
+SCADA.UI.Alarms.updateMarker = updateAlarmFilterMarker;
+
+})(window.SCADA, window);
+
+</script>
+<script>
+  console.log('[REG-TEST] Page: Alarm List loaded');
+</script>
+
+</body>
+</html>

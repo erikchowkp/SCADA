@@ -1,0 +1,253 @@
+
+<style>
+  button:disabled {
+    background: #ddd !important;
+    color: #777 !important;
+    border: 1px solid #aaa !important;
+    cursor: not-allowed !important;
+    opacity: 0.6;
+  }
+  .pump-container, .selector-container { cursor: pointer; }
+</style>
+
+<div id="systemMimic" class="system-mimic" style="position: relative; width: 100%; height: 100%;">
+
+    <div style="position: absolute; left: 149px; top: 82px; text-align: center;">
+        <div id="pit1" class="pit-container"></div>
+        <div id="pit1Label" style="font-size:12px; margin-top:4px;">SPT001</div>
+    </div>
+    <div style="position: absolute; left: 119px; top: 395px; text-align: center;">
+        <div id="selector1" class="selector-container"></div>
+    </div>
+    <div style="position: absolute; left: 449px; top: 94px; text-align: center;">
+        <div id="pump1" class="pump-container"></div>
+        <div id="pump1Label" style="font-size:12px; margin-top:4px;">SUP001</div>
+    </div>
+    <div style="position: absolute; left: 72px; top: 128px; text-align: center;">
+        <div id="ai1" class="ai_textb-container"></div>
+        <div id="ai1Label" style="font-size:12px; margin-top:4px;">FLO001</div>
+    </div>
+    <div style="position: absolute; left: 345px; top: 126px; width: 100px; height: 2px; background-color: #000000; transform: rotate(0deg); transform-origin: center;">
+        
+    </div>
+    <div style="position: absolute; left: 509px; top: 128px; width: 50px; height: 2px; background-color: #000000; transform: rotate(0deg); transform-origin: center;">
+        <div style="position: absolute; right: -6px; top: 50%; transform: translateY(-50%); border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid #000000;"></div>
+    </div>
+    <div style="position: absolute; left: 138px; top: 123px; width: 50px; height: 2px; background-color: #000000; transform: rotate(0deg); transform-origin: center;">
+        <div style="position: absolute; right: -6px; top: 50%; transform: translateY(-50%); border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid #000000;"></div>
+    </div>
+</div>
+
+<script>
+  const LOC = "NBT";
+  const SYS = "TRA";
+
+  const config = {
+    pits: ["SPT001"],
+    pumps: ["SUP001"],
+    ai_textb: ["FLO001"],
+    selectors: ["SPP001"]
+  };
+
+  window.SCADA = window.parent.SCADA;
+  const Core = window.SCADA.Core;
+  const Symbols = window.SCADA.Symbols;
+
+  function registerInitialHighlights() {
+    if (!Core.Highlight) return;
+    const mapId = id => document.getElementById(id);
+    
+    config.pits.forEach((pitId, i) => {
+      const el = mapId(`pit${i + 1}`);
+      const lbl = mapId(`pit${i + 1}Label`);
+      if (el && lbl) Core.Highlight.register(`${LOC}-${SYS}-${lbl.textContent}`, el);
+    });
+    
+    config.pumps.forEach((pumpId, i) => {
+        const el = mapId(`pump${i + 1}`);
+        const lbl = mapId(`pump${i + 1}Label`);
+        if (el && lbl) Core.Highlight.register(`${LOC}-${SYS}-${lbl.textContent}`, el);
+    });
+
+    config.ai_textb?.forEach((aiId, i) => {
+      const el = mapId(`ai${i + 1}`);
+      if (el) Core.Highlight.register(`${LOC}-${SYS}-${aiId}`, el);
+    });
+    
+    config.selectors?.forEach((selId, i) => {
+      const el = mapId(`selector${i + 1}`);
+      if (el) Core.Highlight.register(`${LOC}-${SYS}-${selId}`, el);
+    });
+    
+    Core.Highlight.equipIfPending();
+  }
+
+  function safeInit() {
+    const checkExist = () => {
+      if ((config.pumps.length && document.getElementById("pump1")) ||
+          (config.pits.length && document.getElementById("pit1")) ||
+          (config.ai_textb.length && document.getElementById("ai1")) ||
+          (config.selectors && config.selectors.length && document.getElementById("selector1"))) { 
+        initSymbols(); 
+      } else { 
+        setTimeout(checkExist, 50); 
+      }
+    };
+    checkExist();
+  }
+
+  if (document.readyState === "complete") { safeInit(); } else { window.addEventListener("load", safeInit); }
+
+  function refreshTRA(pumps, pits, aiSymbols, selectors, PanelMode, PanelRemote, data, alarms) {
+    if (!data || !alarms) return;
+    try {
+      config.pits.forEach((pitId, i) => {
+        if (pits[i]) {
+          const cls = pits[i].getVisualClass(data, alarms, LOC);
+          pits[i].update(cls.pct, cls.visualClass);
+          pits[i].showOverride(cls.override);
+        }
+      });
+
+      pumps.forEach(pump => {
+        const cls = pump.getVisualClass(data, alarms, LOC);
+        pump.update(cls.visualClass);
+        pump.showOverride((cls.run?.mo_i) || (cls.trip?.mo_i));
+      });
+
+      config.ai_textb?.forEach((aiId, i) => {
+        if (aiSymbols[i]) {
+          const cls = aiSymbols[i].getVisualClass(data, alarms, LOC);
+          if (cls.value !== null) {
+            aiSymbols[i].update(cls.value, cls.limits, cls.decimals, cls.flash);
+            aiSymbols[i].showOverride(cls.override);
+          }
+        }
+      });
+
+      config.selectors?.forEach((selId, i) => {
+        if (selectors[i]) {
+          const cls = selectors[i].getVisualClass(data, alarms, LOC);
+          selectors[i].update(cls.visualClass);
+          selectors[i].showOverride(cls.override);
+        }
+      });
+
+    } catch (err) {
+      console.error("TRA mimic refresh failed:", err);
+    }
+  }
+
+  function initSymbols() {
+    const initTasks = [];
+
+    config.pumps.forEach((pumpId, i) => {
+      initTasks.push(Symbols.Pump.init(`pump${i + 1}`, {
+        equipKey: `${LOC}-${SYS}-${pumpId}`,
+        faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SUP", equipId: pumpId.slice(-3) }),
+        loc: LOC,
+        noAutoRefresh: true,
+        doc: document
+      }));
+    });
+
+    config.pits.forEach((pitId, i) => {
+      initTasks.push(Symbols.Pit.init(`pit${i + 1}`, {
+        equipKey: `${LOC}-${SYS}-${pitId}`,
+        faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SPT", equipId: pitId.slice(-3) }),
+        loc: LOC,
+        noAutoRefresh: true,
+        doc: document
+      }));
+    });
+
+    const aiSymbols = [];
+    config.ai_textb?.forEach((aiId, i) => {
+      initTasks.push(
+        Symbols.AI_TEXTB.init(`ai${i + 1}`, {
+          loc: LOC, sys: SYS, equipId: aiId.slice(-3), equipType: "FLO", unit: "L/h",
+          noAutoRefresh: true,
+          doc: document
+        }).then(api => {
+          aiSymbols[i] = api;
+          return api;
+        })
+      );
+    });
+
+    const selectorSymbols = [];
+    config.selectors?.forEach((selId, i) => {
+      initTasks.push(
+        Symbols.Selector.init(`selector${i + 1}`, {
+          equipKey: `${LOC}-${SYS}-${selId}`,
+          type: "auto-manual",
+          loc: LOC,
+          noAutoRefresh: true,
+          doc: document
+        }).then(api => {
+          selectorSymbols[i] = api;
+          return api;
+        })
+      );
+    });
+
+    Promise.all(initTasks).then(symbols => {
+      const pumpSymbols = symbols.slice(0, config.pumps.length);
+      const pitSymbols = symbols.slice(config.pumps.length, config.pumps.length + config.pits.length);
+      
+      const PanelMode = { getVisualClass: () => ({}), update: () => {}, showOverride: () => {} };
+      const PanelRemote = { getVisualClass: () => ({}), update: () => {}, showOverride: () => {} };
+
+      if (Core.Highlight) {
+        registerInitialHighlights();
+        Core.Highlight.equipIfPending();
+      }
+
+      const sm = SCADA?.Core?.SocketManager;
+      if (sm) {
+        const scope = `system:${LOC}`;
+        console.log(`📡 ${LOC}_${SYS}: Direct WS subscription to ${scope}`);
+
+        let cachedPoints = {};
+        let cachedAlarms = [];
+
+        const handleSystemUpdate = (msg) => {
+          if (msg.alarms) {
+            cachedAlarms = Array.isArray(msg.alarms) ? msg.alarms : Object.values(msg.alarms);
+            if (msg.type === 'alarms' || msg.type === 'alarm') {
+              const data = { points: Object.values(cachedPoints) };
+              refreshTRA(pumpSymbols, pitSymbols, aiSymbols, selectorSymbols, PanelMode, PanelRemote, data, cachedAlarms);
+              return;
+            }
+          }
+
+          if (msg.type === 'snapshot' && msg.points) {
+            cachedPoints = msg.points;
+            const data = { points: Object.values(cachedPoints) };
+            refreshTRA(pumpSymbols, pitSymbols, aiSymbols, selectorSymbols, PanelMode, PanelRemote, data, cachedAlarms);
+          }
+          else if (msg.type === 'update' && msg.diffs?.points) {
+            if (msg.diffs.points.changed) Object.assign(cachedPoints, msg.diffs.points.changed);
+            if (msg.diffs.points.removed) msg.diffs.points.removed.forEach(key => delete cachedPoints[key]);
+            
+            const data = { points: Object.values(cachedPoints) };
+            refreshTRA(pumpSymbols, pitSymbols, aiSymbols, selectorSymbols, PanelMode, PanelRemote, data, cachedAlarms);
+          }
+        };
+
+        sm.subscribe(scope, handleSystemUpdate);
+        sm.subscribe('alarms', handleSystemUpdate);
+
+        window.addEventListener('beforeunload', () => {
+          try {
+            sm.unsubscribe(scope, handleSystemUpdate);
+            sm.unsubscribe('alarms', handleSystemUpdate);
+          } catch (e) { }
+        });
+      }
+    });
+
+    console.log("✅ Mimic loaded");
+    if (window.parent) { window.parent.postMessage({ type: "mimicReady" }, "*"); }
+  }
+</script>

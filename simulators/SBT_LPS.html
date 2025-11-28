@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>SBT LPS – Simulator</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #101826;
+      --line: #223;
+      --text: #e5e7eb;
+      --muted: #9aa4b2;
+      --accent: #38bdf8;
+      --warn: #f59e0b;
+      --alarm: #ef4444;
+      --ok: #22c55e;
+      --disabled: #334155;
+    }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, Segoe UI, Roboto, Arial;
+      background: var(--bg);
+      color: var(--text)
+    }
+
+    .wrap {
+      max-width: 1000px;
+      margin: 24px auto;
+      padding: 0 16px
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      color: var(--accent);
+      font-weight: 700
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 16px;
+      align-items: start
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap
+    }
+
+    .pill {
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    button {
+      background: #1b2536;
+      border: 1px solid var(--line);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 10px;
+      cursor: pointer
+    }
+
+    button:hover {
+      border-color: #2e3b53
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+      border-color: var(--disabled)
+    }
+
+    label {
+      font-size: 13px;
+      color: var(--muted)
+    }
+
+    input[type="range"] {
+      width: 200px
+    }
+
+    #pit {
+      position: relative;
+      width: 220px;
+      height: 420px;
+      margin: 6px auto;
+      border: 2px solid #495066;
+      border-radius: 8px;
+      background: #0f172a
+    }
+
+    #water {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(#1ea8ff, #0b75c2);
+      height: 0%;
+      transition: height .25s
+    }
+
+    .sensor {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: #455064
+    }
+
+    .s-low {
+      bottom: 10%
+    }
+
+    .s-high {
+      bottom: 50%
+    }
+
+    .s-hh {
+      bottom: 67%
+    }
+
+    .sensor.active {
+      background: #ffb703;
+      height: 3px
+    }
+
+    .sensor.alarm {
+      background: #ef4444;
+      height: 4px
+    }
+
+    .led {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+      border: 1px solid #0003
+    }
+
+    .led.ok {
+      background: var(--ok)
+    }
+
+    .led.off {
+      background: #394457
+    }
+
+    .led.warn {
+      background: var(--warn)
+    }
+
+    .led.alarm {
+      background: var(--alarm)
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 4px 10px;
+      font-size: 13px;
+      color: var(--muted)
+    }
+
+    .mono {
+      font-family: ui-monospace, Menlo, Consolas, monospace
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted)
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>SBT LPS Simulator (3× Pumps)</h1>
+    <div class="grid">
+
+      <!-- LEFT: Pit visualization -->
+      <div class="card">
+        <div id="pit">
+          <div id="water"></div>
+          <div class="sensor s-low" id="sLow"></div>
+          <div class="sensor s-high" id="sHigh"></div>
+          <div class="sensor s-hh" id="sHH"></div>
+        </div>
+        <div class="kv" style="margin-top:8px">
+          <div>Level</div>
+          <div><span id="levelText" class="mono">0</span>%</div>
+          <div>Inflow</div>
+          <div><span id="inflowText" class="mono">0.50</span> L/s</div>
+          <div>P1 Flow</div>
+          <div><span id="p1flowText" class="mono">2.00</span> L/s</div>
+          <div>P2 Flow</div>
+          <div><span id="p2flowText" class="mono">2.00</span> L/s</div>
+          <div>P3 Flow</div>
+          <div><span id="p3flowText" class="mono">2.00</span> L/s</div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Controls & status -->
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <div class="row">
+            <button id="btnUp10">+10%</button>
+            <button id="btnDn10">-10%</button>
+            <button id="btnRain">Rain spike</button>
+          </div>
+          <div class="pill small">API: <span id="apiState">…</span></div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="row">
+          <label>Inflow</label>
+          <input id="inflow" type="range" min="0" max="200" step="1" value="20">
+          <label>Pump Flow</label>
+          <input id="pflow" type="range" min="80" max="140" step="0.1" value="108.9">
+          <label style="margin-left:10px;">
+            <input type="checkbox" id="autoInflowChk"> Auto Random
+          </label>
+
+        </div>
+
+        <div style="height:6px"></div>
+        <div class="row">
+          <label>Mode</label>
+          <button id="btnMode">Auto</button>
+          <label>Control</label>
+          <button id="btnLocRem">Remote</button>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="row">
+          <button id="cmdP1Start">P1 Start</button>
+          <button id="cmdP1Stop">P1 Stop</button>
+          <button id="cmdP1Reset">Reset P1 Trip</button>
+        </div>
+        <div class="row">
+          <button id="cmdP2Start">P2 Start</button>
+          <button id="cmdP2Stop">P2 Stop</button>
+          <button id="cmdP2Reset">Reset P2 Trip</button>
+        </div>
+        <div class="row">
+          <button id="cmdP3Start">P3 Start</button>
+          <button id="cmdP3Stop">P3 Stop</button>
+          <button id="cmdP3Reset">Reset P3 Trip</button>
+        </div>
+
+        <div style="height:14px"></div>
+        <div class="row">
+          <span class="led" id="ledP1Run"></span>P1 Run&nbsp;&nbsp;
+          <span class="led" id="ledP1Trip"></span>P1 Trip&nbsp;&nbsp;
+          <span class="led" id="ledP2Run"></span>P2 Run&nbsp;&nbsp;
+          <span class="led" id="ledP2Trip"></span>P2 Trip&nbsp;&nbsp;
+          <span class="led" id="ledP3Run"></span>P3 Run&nbsp;&nbsp;
+          <span class="led" id="ledP3Trip"></span>P3 Trip
+        </div>
+
+        <div style="height:10px"></div>
+        <div class="small mono" id="status">Ready.</div>
+        <div class="small mono" id="error" style="color:#ffdd88"></div>
+      </div>
+    </div>
+  </div>
+
+
+  <script>
+    // ---------- Config ----------
+    const POLL_MS = 500;
+    const TICK_MS = 500;
+    const LOW = 10;
+    const HIGH = 50;
+    const HIGHHIGH = 67;
+    const TRIP_PROB_ON_START = 0.02;
+
+    // ---------- Elements (define BEFORE reading values) ----------
+    const water = document.getElementById("water");
+    const sLow = document.getElementById("sLow");
+    const sHigh = document.getElementById("sHigh");
+    const sHH = document.getElementById("sHH");
+
+    const inflowEl = document.getElementById("inflow");
+    const pflowEl = document.getElementById("pflow");
+    const inflowText = document.getElementById("inflowText");
+    const p1flowText = document.getElementById("p1flowText");
+    const p2flowText = document.getElementById("p2flowText");
+    const p3flowText = document.getElementById("p3flowText");
+
+
+    const levelText = document.getElementById("levelText");
+    const apiState = document.getElementById("apiState");
+    const statusEl = document.getElementById("status");
+    const errorEl = document.getElementById("error");
+
+    // Panel toggles & pushbuttons (explicit refs; don’t rely on global IDs)
+    const btnMode = document.getElementById("btnMode");
+    const btnLocRem = document.getElementById("btnLocRem");
+    const btnUp10 = document.getElementById("btnUp10");
+    const btnDn10 = document.getElementById("btnDn10");
+    const btnRain = document.getElementById("btnRain");
+
+    const cmdP1Start = document.getElementById("cmdP1Start");
+    const cmdP1Stop = document.getElementById("cmdP1Stop");
+    const cmdP1Reset = document.getElementById("cmdP1Reset");
+
+    const cmdP3Start = document.getElementById("cmdP3Start");
+    const cmdP3Stop = document.getElementById("cmdP3Stop");
+    const cmdP3Reset = document.getElementById("cmdP3Reset");
+
+
+
+    // Map SCADA tag names <-> simulator keys
+    const pumpMap = {
+      SUP001: "P1",
+      SUP002: "P2",
+      SUP003: "P3"
+    };
+
+    // ---------- State ----------
+    let level = 0;                // 0..100 %
+    let inflow = 20;              // l/s  (slider)
+    let pumpFlow = 108.9;         // l/s per running pump (slider defaults to design)
+    const LPS_VOLUME_M3 = 50;     // from report (usable volume)
+    const LPS_LPS_TO_M3 = 0.001;  // 1 l/s = 0.001 m3/s
+
+    let panel = { mode: 0, localRemote: 0 };  // 0=Auto/Remote, 1=Manual/Local
+    let pump = { P1: 0, P2: 0, P3: 0 };
+    let trips = { P1: 0, P2: 0, P3: 0 };
+    let dutyIsP1 = true;
+    // LPS state for 3-pump control
+    let lpsRoles = ["SUP001", "SUP002", "SUP003"]; // initial order
+    let currentRoles = { Lead: "SUP001", Lag: "SUP002", Stan: "SUP003" };
+    let lpsCycleActive = false;
+
+
+    // ---------- Helpers ----------
+    function renderStatus(msg) { statusEl.textContent = msg; }
+    function setLed(el, state) { el.className = "led " + (state === 1 ? "ok" : state === 3 ? "alarm" : "off"); }
+    function controlRole() { return (panel.localRemote === 1 && panel.mode === 1) ? 'local' : 'disabled'; }
+
+    async function writeTag(tag, value) {
+      try {
+        const res = await fetch("/api/plc_write", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tag, value })
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        apiState.textContent = "OK";
+      } catch (e) {
+        apiState.textContent = "ERR";
+        errorEl.textContent = `Failed ${tag}: ${e.message}`;
+      }
+    }
+
+    const lastSent = new Map();
+    async function writeTagIfChanged(tag, value) {
+      if (lastSent.get(tag) === value) return;   // skip identical
+      lastSent.set(tag, value);
+      await writeTag("SBT:" + tag, value);
+    }
+
+    function isRunning(supName) {
+      const key = pumpMap[supName];
+      return pump[key] === 1;
+    }
+    function startPump(sup) {
+      const key = pumpMap[sup];
+      startPumpLocal(key);
+    }
+    function stopPump(sup) {
+      const key = pumpMap[sup];
+      stopPumpLocal(key);
+    }
+
+
+
+
+
+    // ---------- UI events ----------
+    btnUp10.onclick = () => { level = Math.min(100, level + 10); render(); };
+    btnDn10.onclick = () => { level = Math.max(0, level - 10); render(); };
+    btnRain.onclick = () => { level = Math.min(100, level + 5); render(); };
+
+    inflowEl.oninput = e => {
+      inflow = parseFloat(e.target.value);
+      document.getElementById("inflowText").textContent = inflow.toFixed(1);
+    };
+
+    // --- Update PLC definition FLOW001.Value when inflow changes ---
+    inflowEl.addEventListener("change", async () => {
+      try {
+        await fetch("/api/plc_write", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tag: "SBT:FLO001.Value",
+            value: inflow
+          })
+        });
+
+        // Also refresh timestamp for change tracking
+        await fetch("/api/plc_touch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            loc: "SBT",
+            tag: "FLO001.Value"
+          })
+        });
+      } catch (err) {
+        console.error("Failed to update inflow timestamp:", err);
+      }
+    });
+
+
+    pflowEl.oninput = e => {
+      pumpFlow = parseFloat(e.target.value);
+      document.getElementById("p1flowText").textContent = pump.P1 ? pumpFlow.toFixed(1) : "0.0";
+      document.getElementById("p2flowText").textContent = pump.P2 ? pumpFlow.toFixed(1) : "0.0";
+      document.getElementById("p3flowText").textContent = pump.P3 ? pumpFlow.toFixed(1) : "0.0";
+    };
+
+
+    btnMode.onclick = async () => {
+      panel.mode = panel.mode ? 0 : 1;
+      await writeTag("SBT:Panel.Mode", panel.mode);
+      render();
+    };
+    btnLocRem.onclick = async () => {
+      panel.localRemote = panel.localRemote ? 0 : 1;
+      await writeTag("SBT:Panel.LocalRemote", panel.localRemote);
+      render();
+    };
+
+    // Panel pushbuttons (only active in Local+Manual)
+    cmdP1Start.onclick = () => { if (controlRole() === 'local') startPumpLocal("P1"); };
+    cmdP1Stop.onclick = () => { if (controlRole() === 'local') stopPumpLocal("P1"); };
+    cmdP1Reset.onclick = async () => {
+      trips.P1 = 0;
+      await writeTag("SBT:SUP001.Trip", 0);
+      await fetch("/api/alarms/ack", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tag: "SUP001.Trip", loc: "SBT" })
+      });
+      renderStatus("P1 trip reset + ACK (SBT)");
+    };
+
+    cmdP2Start.onclick = () => { if (controlRole() === 'local') startPumpLocal("P2"); };
+    cmdP2Stop.onclick = () => { if (controlRole() === 'local') stopPumpLocal("P2"); };
+    cmdP2Reset.onclick = async () => {
+      trips.P2 = 0;
+      await writeTag("SBT:SUP002.Trip", 0);
+      await fetch("/api/alarms/ack", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tag: "SUP002.Trip", loc: "SBT" })
+      });
+      renderStatus("P2 trip reset + ACK (SBT)");
+    };
+
+
+    cmdP3Start.onclick = () => { if (controlRole() === 'local') startPumpLocal("P3"); };
+    cmdP3Stop.onclick = () => { if (controlRole() === 'local') stopPumpLocal("P3"); };
+    cmdP3Reset.onclick = async () => {
+      trips.P3 = 0;
+      await writeTag("SBT:SUP003.Trip", 0);
+      await fetch("/api/alarms/ack", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tag: "SUP003.Trip", loc: "SBT" })
+      });
+      renderStatus("P3 trip reset + ACK (SBT)");
+    };
+
+    // ---------- Field behaviour ----------
+    function startPumpLocal(id) {
+      if (trips[id]) return;
+      if (!pump[id]) {
+        pump[id] = 1;
+        if (Math.random() < TRIP_PROB_ON_START) {
+          trips[id] = 1; pump[id] = 0;
+          const tripTag = id === "P1" ? "SBT:SUP001.Trip" : id === "P2" ? "SBT:SUP002.Trip" : "SBT:SUP003.Trip";
+          writeTag(tripTag, 1);
+          renderStatus(`${id} TRIPPED on start`);
+          return;
+        }
+        renderStatus(`${id} started`);
+      }
+    }
+    function stopPumpLocal(id) {
+      if (pump[id]) { pump[id] = 0; renderStatus(`${id} stopped`); }
+    }
+
+    function autoControl() {
+      // Use your sim’s global pit level variable
+      const L = level;
+
+      // Thresholds (adjust to your values if different)
+      const L_LOW = 10; // stop both pumps when <= LL
+      const L_HIGH = 50; // start Lead at H
+      const L_HH = 67; // start Lag at HH
+
+      // Current pump roles (by SUP names)
+      const { Lead: lead, Lag: lag, Stan: stan } = currentRoles;
+
+      // --- START logic ---
+      // Start Lead when H reached
+      if (L >= L_HIGH && !isRunning(lead)) {
+        startPump(lead);
+        lpsCycleActive = true; // mark that a drainage cycle has begun
+      }
+
+      // Start Lag when HH reached
+      if (L >= L_HH && !isRunning(lag)) {
+        startPump(lag);
+      }
+
+      // NOTE: Standby DOES NOT auto-start at HH.
+      // It’s kept as reserve; you can still promote it on trip elsewhere if you wish.
+
+      // --- STOP logic ---
+      // Only stop when level is back to LL (pump stop level)
+      if (L <= L_LOW) {
+        stopPump(lead);
+        stopPump(lag);
+        stopPump(stan);
+
+        // Rotate roles at the end of a cycle so each pump takes turn as Lead/Lag
+        if (lpsCycleActive) {
+          lpsRoles.push(lpsRoles.shift());
+          currentRoles = { Lead: lpsRoles[0], Lag: lpsRoles[1], Stan: lpsRoles[2] };
+          console.log("Rotated roles:", currentRoles);
+          lpsCycleActive = false;
+        }
+      }
+    }
+
+
+
+    // ---------- Poll PLC/SCADA image ----------
+    async function poll() {
+      try {
+        const res = await fetch("/api/read_plc");
+        const data = await res.json();
+        const systemPoints = data.points.filter(p => p.loc === "SBT");
+        const map = Object.fromEntries(systemPoints.map(p => [`${p.loc}:${p.tag}`, p.value]));
+
+
+
+        // selectors
+        panel.mode = map["SBT:Panel.Mode"] ?? 0;
+        panel.localRemote = map["SBT:Panel.LocalRemote"] ?? 0;
+
+
+        // trips (keep latched unless cleared)
+        trips.P1 = map["SBT:SUP001.Trip"] ?? trips.P1;
+        trips.P2 = map["SBT:SUP002.Trip"] ?? trips.P2;
+        trips.P3 = map["SBT:SUP003.Trip"] ?? trips.P3;
+
+
+        // remote commands honored only when Remote; then CLEAR the pulse
+        // remote commands honored only when Remote; then CLEAR the pulse
+        if (panel.localRemote === 0) {
+          if ((map["SBT:SUP001.StartCmd"] | 0) === 1) { startPumpLocal("P1"); await writeTag("SBT:SUP001.StartCmd", 0); }
+          if ((map["SBT:SUP001.StopCmd"] | 0) === 1) { stopPumpLocal("P1"); await writeTag("SBT:SUP001.StopCmd", 0); }
+          if ((map["SBT:SUP002.StartCmd"] | 0) === 1) { startPumpLocal("P2"); await writeTag("SBT:SUP002.StartCmd", 0); }
+          if ((map["SBT:SUP002.StopCmd"] | 0) === 1) { stopPumpLocal("P2"); await writeTag("SBT:SUP002.StopCmd", 0); }
+          if ((map["SBT:SUP003.StartCmd"] | 0) === 1) { startPumpLocal("P3"); await writeTag("SBT:SUP003.StartCmd", 0); }
+          if ((map["SBT:SUP003.StopCmd"] | 0) === 1) { stopPumpLocal("P3"); await writeTag("SBT:SUP003.StopCmd", 0); }
+
+
+
+        }
+
+        // run auto only in Auto mode
+        if (panel.mode === 0) { autoControl(); }
+
+        // write run feedbacks
+        await writeTagIfChanged("SUP001.RunFb", pump.P1 ? 1 : 0);
+        await writeTagIfChanged("SUP002.RunFb", pump.P2 ? 1 : 0);
+        await writeTagIfChanged("SUP003.RunFb", pump.P3 ? 1 : 0);
+
+        render();
+      } catch (e) {
+        apiState.textContent = "ERR";
+        errorEl.textContent = `Poll failed: ${e.message}`;
+      }
+    }
+
+    // ---------- Render ----------
+    function render() {
+      // water & sensors
+      water.style.height = `${level}%`;
+      levelText.textContent = level.toFixed(0);
+
+      sLow.classList.toggle("active", level <= LOW);
+      sHigh.classList.toggle("active", level >= HIGH);
+      sHH.classList.toggle("active", level >= HIGHHIGH);
+      sHH.classList.toggle("alarm", level >= HIGHHIGH);
+
+      // LEDs
+      setLed(document.getElementById("ledP1Run"), pump.P1 ? 1 : 0);
+      setLed(document.getElementById("ledP2Run"), pump.P2 ? 1 : 0);
+      setLed(document.getElementById("ledP1Trip"), trips.P1 ? 3 : 0);
+      setLed(document.getElementById("ledP2Trip"), trips.P2 ? 3 : 0);
+      setLed(document.getElementById("ledP3Run"), pump.P3 ? 1 : 0);
+      setLed(document.getElementById("ledP3Trip"), trips.P3 ? 3 : 0);
+
+
+      // slider readouts
+      inflowText.textContent = inflow.toFixed(2);
+      p1flowText.textContent = pumpFlow.toFixed(2);
+      p2flowText.textContent = pumpFlow.toFixed(2);
+      p3flowText.textContent = pumpFlow.toFixed(2);
+
+      // enable panel buttons only in Local+Manual
+      const panelActive = (panel.localRemote === 1 && panel.mode === 1);
+      [cmdP1Start, cmdP1Stop, cmdP1Reset, cmdP2Start, cmdP2Stop, cmdP2Reset, cmdP3Start, cmdP3Stop, cmdP3Reset].forEach(b => b.disabled = !panelActive);
+
+
+      // selector captions
+      btnMode.textContent = panel.mode ? "Manual" : "Auto";
+      btnLocRem.textContent = panel.localRemote ? "Local" : "Remote";
+
+      // bottom description
+      if (panelActive) renderStatus("Local+Manual: Panel pushbuttons active (local operator).");
+      else if (panel.localRemote === 1 && panel.mode === 0) renderStatus("Local+Auto: Panel auto control (pushbuttons disabled).");
+      else if (panel.localRemote === 0 && panel.mode === 1) renderStatus("Remote+Manual: SCADA manual control (panel pushbuttons disabled).");
+      else renderStatus("Remote+Auto: SCADA + auto logic active (panel pushbuttons disabled).");
+    }
+
+    // ---------- Level integration tick (water flows) ----------
+    setInterval(() => {
+      const outflow = (pump.P1 ? pumpFlow : 0) +
+        (pump.P2 ? pumpFlow : 0) +
+        (pump.P3 ? pumpFlow : 0);           // l/s total
+
+      // Convert net flow (l/s) to % level change per second using 50 m³ volume:
+      const netLs = inflow - outflow;                  // l/s
+      const netM3s = netLs * LPS_LPS_TO_M3;            // m³/s
+      const dPct = (netM3s / LPS_VOLUME_M3) * 100;   // % of tank per second
+
+      level += dPct;
+      if (level < 0) level = 0;
+      if (level > 100) level = 100;
+
+      // update level-related tags
+      writeTagIfChanged("Pit.HighLevel", level >= HIGH ? 1 : 0);
+      writeTagIfChanged("Pit.HighHighLevel", level >= HIGHHIGH ? 1 : 0);
+      render();
+    }, TICK_MS);
+
+
+    // ---------- Auto Random Inflow Simulation ----------
+    const autoChk = document.getElementById("autoInflowChk");
+    let autoTimer = null;
+
+    // Toggle handler
+    autoChk.addEventListener("change", () => {
+      if (autoChk.checked) {
+        console.log("✅ Auto inflow randomisation enabled");
+        autoTimer = setInterval(randomiseInflow, 5000); // every 5 s
+      } else {
+        console.log("⏹️ Auto inflow randomisation stopped");
+        clearInterval(autoTimer);
+        autoTimer = null;
+      }
+    });
+
+    async function randomiseInflow() {
+      // Random ±10%
+      const drift = 1 + (Math.random() - 0.5) * 0.2;
+      inflow = Math.max(0, Math.min(180, inflow * drift));
+
+      inflowEl.value = inflow;
+      inflowText.textContent = inflow.toFixed(1);
+
+      try {
+        await fetch("/api/plc_write", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tag: "SBT:FLO001.Value", // Replace with location below
+            value: inflow
+          })
+        });
+        await fetch("/api/plc_touch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            loc: "SBT",
+            tag: "FLO001.Value"
+          })
+        });
+      } catch (err) {
+        console.error("Auto inflow update failed:", err);
+      }
+    }
+
+
+    // ---------- Start loops ----------
+    setInterval(poll, POLL_MS);
+    // set initial slider text
+    inflowText.textContent = inflow.toFixed(2);
+    p1flowText.textContent = pumpFlow.toFixed(2);
+    p2flowText.textContent = pumpFlow.toFixed(2);
+    p3flowText.textContent = pumpFlow.toFixed(2);
+    render(); poll();
+  </script>
+
+</body>
+
+</html>
