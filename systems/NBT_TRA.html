@@ -12,29 +12,11 @@
 
 <div id="systemMimic" class="system-mimic" style="position: relative; width: 100%; height: 100%;">
 
-    <div style="position: absolute; left: 149px; top: 82px; text-align: center;">
-        <div id="pit1" class="pit-container"></div>
-        <div id="pit1Label" style="font-size:12px; margin-top:4px;">SPT001</div>
-    </div>
-    <div style="position: absolute; left: 119px; top: 395px; text-align: center;">
+    <div style="position: absolute; left: 403px; top: 265px; text-align: center;">
         <div id="selector1" class="selector-container"></div>
     </div>
-    <div style="position: absolute; left: 449px; top: 94px; text-align: center;">
-        <div id="pump1" class="pump-container"></div>
-        <div id="pump1Label" style="font-size:12px; margin-top:4px;">SUP001</div>
-    </div>
-    <div style="position: absolute; left: 72px; top: 128px; text-align: center;">
-        <div id="ai1" class="ai_textb-container"></div>
-        <div id="ai1Label" style="font-size:12px; margin-top:4px;">FLO001</div>
-    </div>
-    <div style="position: absolute; left: 345px; top: 126px; width: 100px; height: 2px; background-color: #000000; transform: rotate(0deg); transform-origin: center;">
-        
-    </div>
-    <div style="position: absolute; left: 509px; top: 128px; width: 50px; height: 2px; background-color: #000000; transform: rotate(0deg); transform-origin: center;">
-        <div style="position: absolute; right: -6px; top: 50%; transform: translateY(-50%); border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid #000000;"></div>
-    </div>
-    <div style="position: absolute; left: 138px; top: 123px; width: 50px; height: 2px; background-color: #000000; transform: rotate(0deg); transform-origin: center;">
-        <div style="position: absolute; right: -6px; top: 50%; transform: translateY(-50%); border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid #000000;"></div>
+    <div style="position: absolute; left: 563px; top: 265px; text-align: center;">
+        <div id="selector2" class="selector-container"></div>
     </div>
 </div>
 
@@ -43,10 +25,10 @@
   const SYS = "TRA";
 
   const config = {
-    pits: ["SPT001"],
-    pumps: ["SUP001"],
-    ai_textb: ["FLO001"],
-    selectors: ["SPP001"]
+    pits: [],
+    pumps: [],
+    ai_textb: [],
+    selectors: [{"id":"selector1","equipment":"SPP001","type":"mode"},{"id":"selector2","equipment":"SPP001","type":"remote"}]
   };
 
   window.SCADA = window.parent.SCADA;
@@ -74,9 +56,9 @@
       if (el) Core.Highlight.register(`${LOC}-${SYS}-${aiId}`, el);
     });
     
-    config.selectors?.forEach((selId, i) => {
-      const el = mapId(`selector${i + 1}`);
-      if (el) Core.Highlight.register(`${LOC}-${SYS}-${selId}`, el);
+    config.selectors.forEach(sel => {
+        const el = mapId(sel.id);
+        if (el) Core.Highlight.register(`${LOC}-${SYS}-${sel.equipment}`, el);
     });
     
     Core.Highlight.equipIfPending();
@@ -87,7 +69,7 @@
       if ((config.pumps.length && document.getElementById("pump1")) ||
           (config.pits.length && document.getElementById("pit1")) ||
           (config.ai_textb.length && document.getElementById("ai1")) ||
-          (config.selectors && config.selectors.length && document.getElementById("selector1"))) { 
+          (config.selectors.length > 0 && document.getElementById("selector1"))) { 
         initSymbols(); 
       } else { 
         setTimeout(checkExist, 50); 
@@ -98,7 +80,7 @@
 
   if (document.readyState === "complete") { safeInit(); } else { window.addEventListener("load", safeInit); }
 
-  function refreshTRA(pumps, pits, aiSymbols, selectors, PanelMode, PanelRemote, data, alarms) {
+  function refreshTRA(pumps, pits, aiSymbols, selectorSymbols, PanelMode, PanelRemote, data, alarms) {
     if (!data || !alarms) return;
     try {
       config.pits.forEach((pitId, i) => {
@@ -110,9 +92,11 @@
       });
 
       pumps.forEach(pump => {
-        const cls = pump.getVisualClass(data, alarms, LOC);
-        pump.update(cls.visualClass);
-        pump.showOverride((cls.run?.mo_i) || (cls.trip?.mo_i));
+        if (pump) {
+          const cls = pump.getVisualClass(data, alarms, LOC);
+          pump.update(cls.visualClass);
+          pump.showOverride((cls.run?.mo_i) || (cls.trip?.mo_i));
+        }
       });
 
       config.ai_textb?.forEach((aiId, i) => {
@@ -125,12 +109,17 @@
         }
       });
 
-      config.selectors?.forEach((selId, i) => {
-        if (selectors[i]) {
-          const cls = selectors[i].getVisualClass(data, alarms, LOC);
-          selectors[i].update(cls.visualClass);
-          selectors[i].showOverride(cls.override);
-        }
+      // Update selectors manually
+      config.selectors.forEach((sel, i) => {
+          if (selectorSymbols[i]) {
+              const tagSuffix = sel.type === 'mode' ? 'Panel.Mode' : 'Panel.LocalRemote';
+              // Selectors use exact tag "Panel.Mode" / "Panel.LocalRemote" in data, not prefixed with EquipID
+              const tag = tagSuffix;
+              
+              const cls = selectorSymbols[i].getVisualClass(data, LOC, tag);
+              if (cls.state) selectorSymbols[i].update(cls.state);
+              selectorSymbols[i].showOverride(cls.override);
+          }
       });
 
     } catch (err) {
@@ -142,6 +131,7 @@
     const initTasks = [];
 
     config.pumps.forEach((pumpId, i) => {
+      if (!pumpId) { initTasks.push(Promise.resolve(null)); return; }
       initTasks.push(Symbols.Pump.init(`pump${i + 1}`, {
         equipKey: `${LOC}-${SYS}-${pumpId}`,
         faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SUP", equipId: pumpId.slice(-3) }),
@@ -152,6 +142,7 @@
     });
 
     config.pits.forEach((pitId, i) => {
+      if (!pitId) { initTasks.push(Promise.resolve(null)); return; }
       initTasks.push(Symbols.Pit.init(`pit${i + 1}`, {
         equipKey: `${LOC}-${SYS}-${pitId}`,
         faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SPT", equipId: pitId.slice(-3) }),
@@ -163,6 +154,7 @@
 
     const aiSymbols = [];
     config.ai_textb?.forEach((aiId, i) => {
+      if (!aiId) { initTasks.push(Promise.resolve(null)); return; }
       initTasks.push(
         Symbols.AI_TEXTB.init(`ai${i + 1}`, {
           loc: LOC, sys: SYS, equipId: aiId.slice(-3), equipType: "FLO", unit: "L/h",
@@ -176,24 +168,40 @@
     });
 
     const selectorSymbols = [];
-    config.selectors?.forEach((selId, i) => {
-      initTasks.push(
-        Symbols.Selector.init(`selector${i + 1}`, {
-          equipKey: `${LOC}-${SYS}-${selId}`,
-          type: "auto-manual",
+    // Selectors init
+    const selectorPromises = [
+
+        Symbols.Selector.init('selector1', {
+          equipKey: `${LOC}-${SYS}-SPP001`,
+          type: "mode",
+          tag: "Panel.Mode",
+          faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SPP", equipId: "SPP001".slice(-3) }),
           loc: LOC,
-          noAutoRefresh: true,
           doc: document
         }).then(api => {
-          selectorSymbols[i] = api;
+          selectorSymbols[0] = api;
+          return api;
+        }),
+
+        Symbols.Selector.init('selector2', {
+          equipKey: `${LOC}-${SYS}-SPP001`,
+          type: "remote",
+          tag: "Panel.LocalRemote",
+          faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SPP", equipId: "SPP001".slice(-3) }),
+          loc: LOC,
+          doc: document
+        }).then(api => {
+          selectorSymbols[1] = api;
           return api;
         })
-      );
-    });
+    ];
+    initTasks.push(...selectorPromises);
 
     Promise.all(initTasks).then(symbols => {
       const pumpSymbols = symbols.slice(0, config.pumps.length);
       const pitSymbols = symbols.slice(config.pumps.length, config.pumps.length + config.pits.length);
+      const aiSyms = symbols.slice(config.pumps.length + config.pits.length, config.pumps.length + config.pits.length + config.ai_textb.length);
+      const selSyms = symbols.slice(config.pumps.length + config.pits.length + config.ai_textb.length);
       
       const PanelMode = { getVisualClass: () => ({}), update: () => {}, showOverride: () => {} };
       const PanelRemote = { getVisualClass: () => ({}), update: () => {}, showOverride: () => {} };
@@ -216,7 +224,7 @@
             cachedAlarms = Array.isArray(msg.alarms) ? msg.alarms : Object.values(msg.alarms);
             if (msg.type === 'alarms' || msg.type === 'alarm') {
               const data = { points: Object.values(cachedPoints) };
-              refreshTRA(pumpSymbols, pitSymbols, aiSymbols, selectorSymbols, PanelMode, PanelRemote, data, cachedAlarms);
+              refreshTRA(pumpSymbols, pitSymbols, aiSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
               return;
             }
           }
@@ -224,14 +232,14 @@
           if (msg.type === 'snapshot' && msg.points) {
             cachedPoints = msg.points;
             const data = { points: Object.values(cachedPoints) };
-            refreshTRA(pumpSymbols, pitSymbols, aiSymbols, selectorSymbols, PanelMode, PanelRemote, data, cachedAlarms);
+            refreshTRA(pumpSymbols, pitSymbols, aiSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
           }
           else if (msg.type === 'update' && msg.diffs?.points) {
             if (msg.diffs.points.changed) Object.assign(cachedPoints, msg.diffs.points.changed);
             if (msg.diffs.points.removed) msg.diffs.points.removed.forEach(key => delete cachedPoints[key]);
             
             const data = { points: Object.values(cachedPoints) };
-            refreshTRA(pumpSymbols, pitSymbols, aiSymbols, selectorSymbols, PanelMode, PanelRemote, data, cachedAlarms);
+            refreshTRA(pumpSymbols, pitSymbols, aiSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
           }
         };
 

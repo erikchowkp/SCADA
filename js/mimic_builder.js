@@ -151,7 +151,8 @@ document.addEventListener('DOMContentLoaded', () => {
             symbolType: itemData.symbolType,
             system: '',
             equipment: '',
-            tag: ''
+            tag: '',
+            selectorType: null // 'mode' or 'remote'
         };
 
         if (element.type === 'static-line') {
@@ -163,6 +164,29 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (element.type === 'symbol') {
             element.width = 60;
             element.height = 60;
+
+            // AUTO-PAIR SELECTORS: Create Mode + Remote together
+            if (element.symbolType.toLowerCase().includes('selector')) {
+                // Create Mode selector (Auto/Manual)
+                element.selectorType = 'mode';
+                state.canvasElements.push(element);
+                await renderCanvasElement(element);
+
+                // Create Remote selector (Remote/Local) 160px to the right
+                const remoteId = `el_${state.nextId++}`;
+                const remoteElement = {
+                    ...element,
+                    id: remoteId,
+                    x: x + 160,  // Position to the right (150px width + 10px gap)
+                    selectorType: 'remote'
+                };
+                state.canvasElements.push(remoteElement);
+                await renderCanvasElement(remoteElement);
+
+                // Select the Mode selector
+                selectElement(id);
+                return; // Exit early since we already handled both
+            }
         }
 
         state.canvasElements.push(element);
@@ -207,6 +231,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     svg.style.width = `${elData.width}px`;
                     svg.style.height = `${elData.height}px`;
                     svg.style.display = 'block';
+
+                    // Update visual labels for selectors based on type
+                    if (elData.selectorType === 'mode') {
+                        const left = svg.querySelector('.label-left');
+                        const right = svg.querySelector('.label-right');
+                        if (left) left.textContent = 'Auto';
+                        if (right) right.textContent = 'Manual';
+                    } else if (elData.selectorType === 'remote') {
+                        const left = svg.querySelector('.label-left');
+                        const right = svg.querySelector('.label-right');
+                        if (left) left.textContent = 'Remote';
+                        if (right) right.textContent = 'Local';
+                    }
                 }
 
                 el.style.width = `${elData.width}px`;
@@ -402,6 +439,25 @@ document.addEventListener('DOMContentLoaded', () => {
         equipSelect.addEventListener('change', (e) => {
             elData.equipment = e.target.value;
             updateTagPreview();
+
+            // If this is a selector, update its pair as well
+            if (elData.selectorType) {
+                const pairType = elData.selectorType === 'mode' ? 'remote' : 'mode';
+                // Simple heuristic: The pair is likely the next or previous element in the array
+                const idx = state.canvasElements.findIndex(el => el.id === elData.id);
+                if (idx !== -1) {
+                    const next = state.canvasElements[idx + 1];
+                    const prev = state.canvasElements[idx - 1];
+
+                    if (next && next.selectorType === pairType && !next.equipment) {
+                        next.system = elData.system;
+                        next.equipment = elData.equipment;
+                    } else if (prev && prev.selectorType === pairType && !prev.equipment) {
+                        prev.system = elData.system;
+                        prev.equipment = elData.equipment;
+                    }
+                }
+            }
         });
 
         function updateTagPreview() {
@@ -479,8 +535,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             symbolType,
                             system: pageSysInput.value,
                             equipment,
-                            tag: ''
+                            tag: '',
+                            selectorType: null
                         };
+
+                        // Try to infer selector type from existing page
+                        if (symbolType === 'selector') {
+                            // This is tricky without metadata. We might need to guess based on position or labels if they existed in HTML
+                            // For now, default to 'mode' if it's the first of a pair?
+                            // Or just leave null and let user set it.
+                        }
 
                         state.canvasElements.push(element);
                         await renderCanvasElement(element);
@@ -575,9 +639,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const pumps = [];
         const pits = [];
         const ai_textb = [];
-        const selectors = [];
+        const selectors = []; // Stores config for initSymbols
 
         let layoutHTML = '';
+        let selectorCounter = 0;
 
         state.canvasElements.forEach(el => {
             const style = `position: absolute; left: ${el.x}px; top: ${el.y}px;`;
@@ -595,8 +660,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     ai_textb.push(el.equipment);
                     domId = `ai${ai_textb.length}`;
                 } else if (el.symbolType.toLowerCase().includes('selector')) {
-                    selectors.push(el.equipment);
-                    domId = `selector${selectors.length}`;
+                    selectorCounter++;
+                    domId = `selector${selectorCounter}`;
+
+                    // Add to selectors config
+                    selectors.push({
+                        id: domId,
+                        equipment: el.equipment,
+                        type: el.selectorType // 'mode' or 'remote'
+                    });
                 } else {
                     domId = el.id;
                 }
@@ -627,6 +699,33 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // Generate selector init code
+        const selectorInitCode = selectors.map((sel, i) => {
+            const tagSuffix = sel.type === 'mode' ? 'Panel.Mode' : 'Panel.LocalRemote';
+            const typeParam = sel.type === 'mode' ? 'mode' : 'remote';
+
+            // Note: We remove noAutoRefresh: true so selectors handle their own updates via internal socket subscription
+            return `
+        Symbols.Selector.init('${sel.id}', {
+          equipKey: \`\${LOC}-\${SYS}-${sel.equipment}\`,
+          type: "${typeParam}",
+          tag: "${tagSuffix}",
+          faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SPP", equipId: "${sel.equipment}".slice(-3) }),
+          loc: LOC,
+          doc: document
+        }).then(api => {
+          selectorSymbols[${i}] = api;
+          return api;
+        })`;
+        }).join(',\n');
+
+        // Config object for selectors (store full config for update loop)
+        const selectorConfig = selectors.map(s => ({
+            id: s.id,
+            equipment: s.equipment,
+            type: s.type
+        }));
+
         return `
 <style>
   button:disabled {
@@ -650,8 +749,8 @@ ${layoutHTML}
   const config = {
     pits: ${JSON.stringify(pits)},
     pumps: ${JSON.stringify(pumps)},
-    ai_textb: ${JSON.stringify(ai_textb)}${selectors.length > 0 ? `,
-    selectors: ${JSON.stringify(selectors)}` : ''}
+    ai_textb: ${JSON.stringify(ai_textb)},
+    selectors: ${JSON.stringify(selectorConfig)}
   };
 
   window.SCADA = window.parent.SCADA;
@@ -679,9 +778,9 @@ ${layoutHTML}
       if (el) Core.Highlight.register(\`\${LOC}-\${SYS}-\${aiId}\`, el);
     });
     
-    config.selectors?.forEach((selId, i) => {
-      const el = mapId(\`selector\${i + 1}\`);
-      if (el) Core.Highlight.register(\`\${LOC}-\${SYS}-\${selId}\`, el);
+    config.selectors.forEach(sel => {
+        const el = mapId(sel.id);
+        if (el) Core.Highlight.register(\`\${LOC}-\${SYS}-\${sel.equipment}\`, el);
     });
     
     Core.Highlight.equipIfPending();
@@ -692,7 +791,7 @@ ${layoutHTML}
       if ((config.pumps.length && document.getElementById("pump1")) ||
           (config.pits.length && document.getElementById("pit1")) ||
           (config.ai_textb.length && document.getElementById("ai1")) ||
-          (config.selectors && config.selectors.length && document.getElementById("selector1"))) { 
+          (config.selectors.length > 0 && document.getElementById("selector1"))) { 
         initSymbols(); 
       } else { 
         setTimeout(checkExist, 50); 
@@ -703,7 +802,7 @@ ${layoutHTML}
 
   if (document.readyState === "complete") { safeInit(); } else { window.addEventListener("load", safeInit); }
 
-  function refresh${sys}(pumps, pits, aiSymbols, selectors, PanelMode, PanelRemote, data, alarms) {
+  function refresh${sys}(pumps, pits, aiSymbols, selectorSymbols, PanelMode, PanelRemote, data, alarms) {
     if (!data || !alarms) return;
     try {
       config.pits.forEach((pitId, i) => {
@@ -715,9 +814,11 @@ ${layoutHTML}
       });
 
       pumps.forEach(pump => {
-        const cls = pump.getVisualClass(data, alarms, LOC);
-        pump.update(cls.visualClass);
-        pump.showOverride((cls.run?.mo_i) || (cls.trip?.mo_i));
+        if (pump) {
+          const cls = pump.getVisualClass(data, alarms, LOC);
+          pump.update(cls.visualClass);
+          pump.showOverride((cls.run?.mo_i) || (cls.trip?.mo_i));
+        }
       });
 
       config.ai_textb?.forEach((aiId, i) => {
@@ -730,12 +831,17 @@ ${layoutHTML}
         }
       });
 
-      config.selectors?.forEach((selId, i) => {
-        if (selectors[i]) {
-          const cls = selectors[i].getVisualClass(data, alarms, LOC);
-          selectors[i].update(cls.visualClass);
-          selectors[i].showOverride(cls.override);
-        }
+      // Update selectors manually
+      config.selectors.forEach((sel, i) => {
+          if (selectorSymbols[i]) {
+              const tagSuffix = sel.type === 'mode' ? 'Panel.Mode' : 'Panel.LocalRemote';
+              // Selectors use exact tag "Panel.Mode" / "Panel.LocalRemote" in data, not prefixed with EquipID
+              const tag = tagSuffix;
+              
+              const cls = selectorSymbols[i].getVisualClass(data, LOC, tag);
+              if (cls.state) selectorSymbols[i].update(cls.state);
+              selectorSymbols[i].showOverride(cls.override);
+          }
       });
 
     } catch (err) {
@@ -747,6 +853,7 @@ ${layoutHTML}
     const initTasks = [];
 
     config.pumps.forEach((pumpId, i) => {
+      if (!pumpId) { initTasks.push(Promise.resolve(null)); return; }
       initTasks.push(Symbols.Pump.init(\`pump\${i + 1}\`, {
         equipKey: \`\${LOC}-\${SYS}-\${pumpId}\`,
         faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SUP", equipId: pumpId.slice(-3) }),
@@ -757,6 +864,7 @@ ${layoutHTML}
     });
 
     config.pits.forEach((pitId, i) => {
+      if (!pitId) { initTasks.push(Promise.resolve(null)); return; }
       initTasks.push(Symbols.Pit.init(\`pit\${i + 1}\`, {
         equipKey: \`\${LOC}-\${SYS}-\${pitId}\`,
         faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SPT", equipId: pitId.slice(-3) }),
@@ -768,6 +876,7 @@ ${layoutHTML}
 
     const aiSymbols = [];
     config.ai_textb?.forEach((aiId, i) => {
+      if (!aiId) { initTasks.push(Promise.resolve(null)); return; }
       initTasks.push(
         Symbols.AI_TEXTB.init(\`ai\${i + 1}\`, {
           loc: LOC, sys: SYS, equipId: aiId.slice(-3), equipType: "FLO", unit: "L/h",
@@ -781,24 +890,17 @@ ${layoutHTML}
     });
 
     const selectorSymbols = [];
-    config.selectors?.forEach((selId, i) => {
-      initTasks.push(
-        Symbols.Selector.init(\`selector\${i + 1}\`, {
-          equipKey: \`\${LOC}-\${SYS}-\${selId}\`,
-          type: "auto-manual",
-          loc: LOC,
-          noAutoRefresh: true,
-          doc: document
-        }).then(api => {
-          selectorSymbols[i] = api;
-          return api;
-        })
-      );
-    });
+    // Selectors init
+    const selectorPromises = [
+${selectorInitCode}
+    ];
+    initTasks.push(...selectorPromises);
 
     Promise.all(initTasks).then(symbols => {
       const pumpSymbols = symbols.slice(0, config.pumps.length);
       const pitSymbols = symbols.slice(config.pumps.length, config.pumps.length + config.pits.length);
+      const aiSyms = symbols.slice(config.pumps.length + config.pits.length, config.pumps.length + config.pits.length + config.ai_textb.length);
+      const selSyms = symbols.slice(config.pumps.length + config.pits.length + config.ai_textb.length);
       
       const PanelMode = { getVisualClass: () => ({}), update: () => {}, showOverride: () => {} };
       const PanelRemote = { getVisualClass: () => ({}), update: () => {}, showOverride: () => {} };
@@ -821,7 +923,7 @@ ${layoutHTML}
             cachedAlarms = Array.isArray(msg.alarms) ? msg.alarms : Object.values(msg.alarms);
             if (msg.type === 'alarms' || msg.type === 'alarm') {
               const data = { points: Object.values(cachedPoints) };
-              refresh${sys}(pumpSymbols, pitSymbols, aiSymbols, selectorSymbols, PanelMode, PanelRemote, data, cachedAlarms);
+              refresh${sys}(pumpSymbols, pitSymbols, aiSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
               return;
             }
           }
@@ -829,14 +931,14 @@ ${layoutHTML}
           if (msg.type === 'snapshot' && msg.points) {
             cachedPoints = msg.points;
             const data = { points: Object.values(cachedPoints) };
-            refresh${sys}(pumpSymbols, pitSymbols, aiSymbols, selectorSymbols, PanelMode, PanelRemote, data, cachedAlarms);
+            refresh${sys}(pumpSymbols, pitSymbols, aiSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
           }
           else if (msg.type === 'update' && msg.diffs?.points) {
             if (msg.diffs.points.changed) Object.assign(cachedPoints, msg.diffs.points.changed);
             if (msg.diffs.points.removed) msg.diffs.points.removed.forEach(key => delete cachedPoints[key]);
             
             const data = { points: Object.values(cachedPoints) };
-            refresh${sys}(pumpSymbols, pitSymbols, aiSymbols, selectorSymbols, PanelMode, PanelRemote, data, cachedAlarms);
+            refresh${sys}(pumpSymbols, pitSymbols, aiSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
           }
         };
 
