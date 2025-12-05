@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>jj</title>
+    <style>
+        body { margin: 0; padding: 0; background: #ffffff; overflow: hidden; }
+        .symbol-container { position: absolute; }
+        /* Add symbol specific container styles if needed */
+        .pump-container, .pit-container, .selector-container, .ai_textb-container { cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="mimic-container" style="position:relative; width:100%; height:100%;">
+        
+    <div style="position: absolute; left: 467px; top: 240px; text-align: center;" data-equipment="SUP001">
+        <div id="SPP001" class="pump-container"></div>
+    </div>
+
+    </div>
+
+    <script>
+        
+  const LOC = "NBT";
+  const SYS = "TRA";
+
+  const config = {
+    pits: [],
+    pumps: [{"id":"SPP001","equipment":"SUP001"}],
+    ai_textb: [],
+    selectors: []
+  };
+
+  window.SCADA = window.parent.SCADA;
+  const Core = window.SCADA.Core;
+  const Symbols = window.SCADA.Symbols;
+
+  function registerInitialHighlights() {
+    if (!Core.Highlight) return;
+    const mapId = id => document.getElementById(id);
+    
+    // Auto-generated highlight registration based on config
+    // (Simplified for brevity, matching original pattern)
+    
+    if(mapId('SPP001')) Core.Highlight.register('NBT-TRA-SUP001', mapId('SPP001'));
+    
+    
+    
+    Core.Highlight.equipIfPending();
+  }
+
+  function safeInit() {
+    const checkExist = () => {
+      // Check if first element of each type exists if configured
+      const ready = 
+        (!config.pumps.length || document.getElementById("SPP001")) &&
+        (!config.pits.length || document.getElementById("undefined")) &&
+        (!config.ai_textb.length || document.getElementById("undefined")) &&
+        (!config.selectors.length || document.getElementById("undefined"));
+        
+      if (ready) { 
+        initSymbols(); 
+      } else { 
+        setTimeout(checkExist, 50); 
+      }
+    };
+    checkExist();
+  }
+
+  if (document.readyState === "complete") { safeInit(); } else { window.addEventListener("load", safeInit); }
+
+  // Refresh Function (Generic)
+  function refreshTRA(pumps, pits, aiSymbols, selectorSymbols, PanelMode, PanelRemote, data, alarms) {
+    if (!data || !alarms) return;
+    try {
+      // Pits
+      config.pits.forEach((pitId, i) => {
+        if (pits[i]) {
+          const cls = pits[i].getVisualClass(data, alarms, LOC);
+          pits[i].update(cls.pct, cls.visualClass);
+          pits[i].showOverride(cls.override);
+        }
+      });
+
+      // Pumps
+      pumps.forEach(pump => {
+        if (pump) {
+          const cls = pump.getVisualClass(data, alarms, LOC);
+          pump.update(cls.visualClass);
+          pump.showOverride((cls.run?.mo_i) || (cls.trip?.mo_i));
+        }
+      });
+
+      // AI
+      config.ai_textb?.forEach((aiId, i) => {
+        if (aiSymbols[i]) {
+          const cls = aiSymbols[i].getVisualClass(data, alarms, LOC);
+          if (cls.value !== null) {
+            aiSymbols[i].update(cls.value, cls.limits, cls.decimals, cls.flash);
+            aiSymbols[i].showOverride(cls.override);
+          }
+        }
+      });
+
+      // Selectors
+      config.selectors.forEach((sel, i) => {
+          if (selectorSymbols[i]) {
+              const tagSuffix = sel.type === 'mode' ? 'Panel.Mode' : 'Panel.LocalRemote';
+              const cls = selectorSymbols[i].getVisualClass(data, LOC, tagSuffix);
+              if (cls.state) selectorSymbols[i].update(cls.state);
+              selectorSymbols[i].showOverride(cls.override);
+          }
+      });
+
+    } catch (err) {
+      console.error("TRA mimic refresh failed:", err);
+    }
+  }
+
+  function initSymbols() {
+    const initTasks = [];
+
+    // Pumps
+    
+    initTasks.push(Symbols.Pump.init('SPP001', {
+        equipKey: 'NBT-TRA-SUP001',
+        faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SUP", equipId: "001" }),
+        loc: LOC,
+        noAutoRefresh: true,
+        doc: document
+    }));
+
+    // Pits
+    
+
+    // AI
+    const aiSymbols = [];
+    
+
+    // Selectors
+    const selectorSymbols = [];
+    
+
+    Promise.all(initTasks).then(symbols => {
+      // Slice symbols back to arrays
+      let offset = 0;
+      const pumpSymbols = symbols.slice(offset, offset + 1); offset += 1;
+      const pitSymbols = symbols.slice(offset, offset + 0); offset += 0;
+      const aiSyms = symbols.slice(offset, offset + 0); offset += 0;
+      const selSyms = symbols.slice(offset, offset + 0);
+
+      const PanelMode = { getVisualClass: () => ({}), update: () => {}, showOverride: () => {} };
+      const PanelRemote = { getVisualClass: () => ({}), update: () => {}, showOverride: () => {} };
+
+      if (Core.Highlight) {
+        registerInitialHighlights();
+        Core.Highlight.equipIfPending();
+      }
+
+      const sm = SCADA?.Core?.SocketManager;
+      if (sm) {
+        const scope = `system:${LOC}`;
+        console.log(`📡 ${LOC}_${SYS}: Direct WS subscription to ${scope}`);
+
+        let cachedPoints = {};
+        let cachedAlarms = [];
+
+        const handleSystemUpdate = (msg) => {
+          if (msg.alarms) {
+            cachedAlarms = Array.isArray(msg.alarms) ? msg.alarms : Object.values(msg.alarms);
+            if (msg.type === 'alarms' || msg.type === 'alarm') {
+              const data = { points: Object.values(cachedPoints) };
+              refreshTRA(pumpSymbols, pitSymbols, aiSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
+              return;
+            }
+          }
+
+          if (msg.type === 'snapshot' && msg.points) {
+            cachedPoints = msg.points;
+            const data = { points: Object.values(cachedPoints) };
+            refreshTRA(pumpSymbols, pitSymbols, aiSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
+          }
+          else if (msg.type === 'update' && msg.diffs?.points) {
+            if (msg.diffs.points.changed) Object.assign(cachedPoints, msg.diffs.points.changed);
+            if (msg.diffs.points.removed) msg.diffs.points.removed.forEach(key => delete cachedPoints[key]);
+            
+            const data = { points: Object.values(cachedPoints) };
+            refreshTRA(pumpSymbols, pitSymbols, aiSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
+          }
+        };
+
+        sm.subscribe(scope, handleSystemUpdate);
+        sm.subscribe('alarms', handleSystemUpdate);
+
+        window.addEventListener('beforeunload', () => {
+          try {
+            sm.unsubscribe(scope, handleSystemUpdate);
+            sm.unsubscribe('alarms', handleSystemUpdate);
+          } catch (e) { }
+        });
+      }
+    });
+
+    console.log("✅ Mimic loaded");
+    if (window.parent) { window.parent.postMessage({ type: "mimicReady" }, "*"); }
+  }
+
+    </script>
+</body>
+</html>

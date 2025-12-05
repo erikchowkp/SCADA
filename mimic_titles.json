@@ -1,0 +1,12 @@
+{
+  "alarm": "Alarm List",
+  "event": "Event List",
+  "TREND": "Trend Viewer",
+  "NBT_TRA_1": "NBT - Northbound Tunnel Low Point Sump",
+  "SBT_TRA_1": "SBT - Southbound Tunnel Low Point Sump",
+  "VENT": "VENT – Tunnel Ventilation Fans",
+  "FIRE": "FIRE – Fire Alarm & Detection System",
+  "NBT_TRA_2": "jj",
+  "NBT_TRA_3": "sss",
+  "NBT_TRA_4": "jj"
+}

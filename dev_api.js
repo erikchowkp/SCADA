@@ -186,6 +186,23 @@ router.post("/mimic", (req, res) => {
 });
 
 
+
+// GET /api/dev/mimic_files - List all available mimic files
+router.get("/mimic_files", (req, res) => {
+    try {
+        const systemsDir = path.join(__dirname, "systems");
+        if (!fs.existsSync(systemsDir)) {
+            return res.json([]);
+        }
+        const files = fs.readdirSync(systemsDir)
+            .filter(f => f.endsWith(".html"));
+        res.json(files);
+    } catch (e) {
+        console.error("Error listing mimic files:", e);
+        res.status(500).json({ error: "Failed to list mimic files" });
+    }
+});
+
 // GET /api/dev/mimic/:filename - Read existing mimic page
 router.get("/mimic/:filename", (req, res) => {
     const filename = req.params.filename;
@@ -233,6 +250,79 @@ router.get("/symbol_content/:name", (req, res) => {
         // Or maybe check for SVG file if we had them.
         // For now return 404 or empty.
         res.status(404).json({ error: "Symbol content not found" });
+    }
+});
+
+// GET /api/dev/titles - Read mimic titles
+router.get("/titles", (req, res) => {
+    const titlesPath = path.join(__dirname, "mimic_titles.json");
+    const data = readJsonFileSafe(titlesPath);
+    if (!data) {
+        return res.json({}); // Return empty object if file doesn't exist
+    }
+    res.json(data);
+});
+
+// POST /api/dev/titles - Update mimic titles
+router.post("/titles", (req, res) => {
+    const titlesPath = path.join(__dirname, "mimic_titles.json");
+    const newTitles = req.body;
+
+    if (!newTitles || typeof newTitles !== 'object') {
+        return res.status(400).json({ error: "Invalid data format" });
+    }
+
+    try {
+        // Read existing to merge (optional, but safer) or just overwrite?
+        // Let's read existing and merge to avoid losing other keys if partial update sent (though editor likely sends full or single key update)
+        // Actually, let's assume the client sends a patch or we handle merging here.
+        // For simplicity, let's support merging a single key-value pair or a full object.
+
+        let currentTitles = readJsonFileSafe(titlesPath) || {};
+
+        // If body has "key" and "value", update single entry
+        if (newTitles.key && newTitles.value) {
+            currentTitles[newTitles.key] = newTitles.value;
+        } else {
+            // Assume full object merge
+            currentTitles = { ...currentTitles, ...newTitles };
+        }
+
+        fs.writeFileSync(titlesPath, JSON.stringify(currentTitles, null, 2), "utf8");
+        console.log(`[DEV API] Updated mimic titles`);
+        res.json({ ok: true });
+    } catch (e) {
+        console.error("Error saving mimic titles:", e);
+        res.status(500).json({ error: "Failed to save mimic titles" });
+    }
+});
+
+// GET /api/dev/navigation - Read navigation config
+router.get("/navigation", (req, res) => {
+    const navPath = path.join(__dirname, "navigation.json");
+    const data = readJsonFileSafe(navPath);
+    if (!data) {
+        return res.json({ locations: [] });
+    }
+    res.json(data);
+});
+
+// POST /api/dev/navigation - Update navigation config
+router.post("/navigation", (req, res) => {
+    const navPath = path.join(__dirname, "navigation.json");
+    const newNav = req.body;
+
+    if (!newNav || typeof newNav !== 'object') {
+        return res.status(400).json({ error: "Invalid data format" });
+    }
+
+    try {
+        fs.writeFileSync(navPath, JSON.stringify(newNav, null, 2), "utf8");
+        console.log(`[DEV API] Updated navigation config`);
+        res.json({ ok: true });
+    } catch (e) {
+        console.error("Error saving navigation config:", e);
+        res.status(500).json({ error: "Failed to save navigation config" });
     }
 });
 

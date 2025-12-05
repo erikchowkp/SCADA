@@ -13,16 +13,19 @@
         <header class="app-header">
             <div class="header-left">
                 <h1>Mimic Editor</h1>
+                <div id="currentFileDisplay" style="color: #888; font-size: 0.9em; margin-left: 15px; display: none;">
+                </div>
             </div>
             <div class="header-controls">
+                <button id="navBtn" class="secondary-btn">Navigation</button>
+                <button id="loadBtn" class="secondary-btn">Load Mimic</button>
+                <button id="generateBtn" class="primary-btn">Generate</button>
                 <input type="file" id="loadFileInput" accept=".html" style="display: none;">
-                <button id="loadBtn" class="secondary-btn">Load Page</button>
-                <button id="generateBtn" class="primary-btn">Generate Page</button>
             </div>
         </header>
 
-        <main class="main-content">
-            <aside class="sidebar left-sidebar">
+        <div class="main-content">
+            <aside class="sidebar">
                 <div class="sidebar-section">
                     <h3>Symbols</h3>
                     <div id="symbolList" class="tool-list">
@@ -70,16 +73,20 @@
                         <label>System (SYS)</label>
                         <input type="text" id="pageSys" placeholder="e.g. TRA">
                     </div>
+                    <div class="form-group">
+                        <label>Page Title</label>
+                        <input type="text" id="pageTitle" placeholder="e.g. NBT - Tunnel Sump">
+                    </div>
                 </div>
             </aside>
-        </main>
+        </div>
     </div>
 
     <!-- Templates for Properties -->
     <template id="symbol-props-template">
         <div class="form-group">
             <label>ID</label>
-            <input type="text" data-prop="id" disabled>
+            <input type="text" data-prop="id">
         </div>
         <div class="form-group">
             <label>System</label>
@@ -96,6 +103,9 @@
         <div class="form-group">
             <label>Tag Preview</label>
             <div class="tag-preview" data-prop="tagPreview">-</div>
+        </div>
+        <div class="form-group" style="margin-top: 20px;">
+            <button class="delete-btn" data-action="delete">Delete Element</button>
         </div>
     </template>
 
@@ -119,6 +129,9 @@
                 <option value="bold">Bold</option>
             </select>
         </div>
+        <div class="form-group" style="margin-top: 20px;">
+            <button class="delete-btn" data-action="delete">Delete Element</button>
+        </div>
     </template>
 
     <template id="line-props-template">
@@ -138,7 +151,86 @@
             <label>Rotation (deg)</label>
             <input type="number" data-prop="rotation" value="0">
         </div>
+        <div class="form-group" style="margin-top: 20px;">
+            <button class="delete-btn" data-action="delete">Delete Element</button>
+        </div>
     </template>
+
+    <!-- Navigation Manager Modal -->
+    <div id="navModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Navigation Manager</h2>
+                <span class="close" id="navCloseBtn">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="nav-columns">
+                    <div class="nav-col">
+                        <h3>Locations</h3>
+                        <ul id="navListLoc" class="nav-list"></ul>
+                        <button id="navAddLocBtn" class="add-btn">+ Add Location</button>
+                    </div>
+                    <div class="nav-col">
+                        <h3>Systems</h3>
+                        <ul id="navListSys" class="nav-list"></ul>
+                        <button id="navAddSysBtn" class="add-btn" disabled>+ Add System</button>
+                    </div>
+                    <div class="nav-col">
+                        <h3>Pages</h3>
+                        <ul id="navListPage" class="nav-list"></ul>
+                        <button id="navAddPageBtn" class="add-btn" disabled>+ Add Page</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="navSaveBtn" class="primary-btn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Selection Modal -->
+    <div id="fileSelectModal" class="modal" style="display: none;">
+        <div class="modal-content" style="width: 500px;">
+            <div class="modal-header">
+                <h2>Select Mimic Page</h2>
+                <span class="close" id="fileSelectCloseBtn">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Select an existing file to link, or create a new one.</p>
+                <div id="fileList" class="file-list">
+                    <!-- Files will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <button id="fileCreateNewBtn" class="secondary-btn">Create New (Auto-numbered)</button>
+                <button id="fileSelectConfirmBtn" class="primary-btn" disabled>Select File</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save New Page Modal -->
+    <div id="saveModal" class="modal" style="display: none;">
+        <div class="modal-content" style="width: 500px;">
+            <div class="modal-header">
+                <h2>Save New Page</h2>
+                <span class="close" id="saveCloseBtn">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Existing files in this system:</p>
+                <div id="saveFileList" class="file-list"
+                    style="height: 150px; overflow-y: auto; border: 1px solid #eee; margin-bottom: 15px;">
+                    <!-- Existing files loaded here -->
+                </div>
+                <div class="form-group">
+                    <label>Filename</label>
+                    <input type="text" id="saveFilenameInput" style="width: 100%; padding: 8px;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="saveConfirmBtn" class="primary-btn">Save</button>
+            </div>
+        </div>
+    </div>
 
     <script src="js/mimic_builder.js"></script>
 </body>

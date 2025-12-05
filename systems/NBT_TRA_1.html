@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NBT - Northbound Tunnel Low Point Sump</title>
+    <style>
+        body { margin: 0; padding: 0; background: #ffffff; overflow: hidden; }
+        .symbol-container { position: absolute; }
+        /* Add symbol specific container styles if needed */
+        .pump-container, .pit-container, .selector-container, .ai_textb-container { cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="mimic-container" style="position:relative; width:100%; height:100%;">
+        
+    <div style="position:absolute; left:311px; top:420px; font-size:12px; color:rgb(0, 0, 0); font-weight:normal; white-space:nowrap;">
+        SPT001
+    </div>
+
+    <div style="position:absolute; left:444.362px; top:600px; font-size:12px; color:rgb(0, 0, 0); font-weight:normal; white-space:nowrap;">
+        SPP001
+    </div>
+
+    <div style="position:absolute; left:129.362px; top:242px; font-size:12px; color:rgb(0, 0, 0); font-weight:normal; white-space:nowrap;">
+        FLO001
+    </div>
+
+    <div style="position:absolute; left:512.362px; top:205px; font-size:12px; color:rgb(0, 0, 0); font-weight:normal; white-space:nowrap;">
+        SUP001
+    </div>
+
+    <div style="position:absolute; left:511.362px; top:305px; font-size:12px; color:rgb(0, 0, 0); font-weight:normal; white-space:nowrap;">
+        SUP002
+    </div>
+
+    <div style="position:absolute; left:509.362px; top:404px; font-size:12px; color:rgb(0, 0, 0); font-weight:normal; white-space:nowrap;">
+        SUP003
+    </div>
+
+    <div style="position:absolute; left:664.362px; top:250px; font-size:12px; color:rgb(0, 0, 0); font-weight:normal; white-space:nowrap;">
+        To Portal Sump
+    </div>
+
+    <div style="position:absolute; left:15px; top:12px; font-size:12px; color:rgb(0, 0, 0); font-weight:normal; white-space:nowrap;">
+        New Text
+    </div>
+
+    <div style="position:absolute; left:99px; top:201px; width:150px; height:2px; background-color:rgb(0, 0, 0); transform:rotate(0deg); transform-origin:center;">
+        <div style="position: absolute; right: -6px; top: 50%; transform: translateY(-50%); border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid rgb(0, 0, 0);"></div>
+    </div>
+
+    <div style="position:absolute; left:394px; top:375px; width:109px; height:2px; background-color:rgb(0, 0, 0); transform:rotate(0deg); transform-origin:0 0;"></div>
+
+    <div style="position:absolute; left:447.362px; top:375px; width:199px; height:2px; background-color:rgb(0, 0, 0); transform:rotate(270deg); transform-origin:0 0;"></div>
+
+    <div style="position:absolute; left:448.362px; top:176px; width:56px; height:2px; background-color:rgb(0, 0, 0); transform:rotate(0deg); transform-origin:0 0;"></div>
+
+    <div style="position:absolute; left:448.362px; top:270px; width:56px; height:2px; background-color:rgb(0, 0, 0); transform:rotate(0deg); transform-origin:0 0;"></div>
+
+    <div style="position:absolute; left:561.362px; top:173px; width:50px; height:2px; background-color:rgb(0, 0, 0); transform:rotate(0deg); transform-origin:0 0;"></div>
+
+    <div style="position:absolute; left:563.362px; top:271px; width:47px; height:2px; background-color:rgb(0, 0, 0); transform:rotate(0deg); transform-origin:0 0;"></div>
+
+    <div style="position:absolute; left:611.362px; top:175px; width:199px; height:2px; background-color:rgb(0, 0, 0); transform:rotate(90deg); transform-origin:0 0;"></div>
+
+    <div style="position:absolute; left:562.362px; top:372px; width:50px; height:2px; background-color:rgb(0, 0, 0); transform:rotate(0deg); transform-origin:0 0;"></div>
+
+    <div style="position:absolute; left:611.362px; top:271px; width:150px; height:2px; background-color:rgb(0, 0, 0); transform:rotate(0deg); transform-origin:center;">
+        <div style="position: absolute; right: -6px; top: 50%; transform: translateY(-50%); border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid rgb(0, 0, 0);"></div>
+    </div>
+
+    <div style="position: absolute; left: 110px; top: 209px; text-align: center;" data-equipment="FLO001">
+        <div id="ai_textb2" class="ai_textb-container"></div>
+    </div>
+
+    <div style="position: absolute; left: 502px; top: 143px; text-align: center;" data-equipment="SUP001">
+        <div id="SUP001" class="pump-container"></div>
+    </div>
+
+    <div style="position: absolute; left: 503px; top: 242px; text-align: center;" data-equipment="SUP002">
+        <div id="SUP002" class="pump-container"></div>
+    </div>
+
+    <div style="position: absolute; left: 503px; top: 341px; text-align: center;" data-equipment="SUP003">
+        <div id="SUP003" class="pump-container"></div>
+    </div>
+
+    <div style="position: absolute; left: 316.362px; top: 518px; text-align: center;" data-equipment="SPP001">
+        <div id="SPP001" class="selector-container"></div>
+    </div>
+
+    <div style="position: absolute; left: 452.362px; top: 520px; text-align: center;" data-equipment="SPP001">
+        <div id="SPP001_1" class="selector-container"></div>
+    </div>
+
+    <div style="position: absolute; left: 210.362px; top: 135px; text-align: center;" data-equipment="SPT001">
+        <div id="SPT001" class="pit-container"></div>
+    </div>
+
+    </div>
+
+    <script>
+        
+  const LOC = "NBT";
+  const SYS = "TRA";
+
+  const config = {
+    pits: [{"id":"SPT001","equipment":"SPT001"}],
+    pumps: [{"id":"SUP001","equipment":"SUP001"},{"id":"SUP002","equipment":"SUP002"},{"id":"SUP003","equipment":"SUP003"}],
+    ai_textb: [{"id":"ai_textb2","equipment":"FLO001"}],
+    selectors: [{"id":"SPP001","equipment":"SPP001","type":"mode"},{"id":"SPP001_1","equipment":"SPP001","type":"remote"}]
+  };
+
+  window.SCADA = window.parent.SCADA;
+  const Core = window.SCADA.Core;
+  const Symbols = window.SCADA.Symbols;
+
+  function registerInitialHighlights() {
+    if (!Core.Highlight) return;
+    const mapId = id => document.getElementById(id);
+    
+    // Auto-generated highlight registration based on config
+    // (Simplified for brevity, matching original pattern)
+    if(mapId('SPT001')) Core.Highlight.register('NBT-TRA-SPT001', mapId('SPT001'));
+    if(mapId('SUP001')) Core.Highlight.register('NBT-TRA-SUP001', mapId('SUP001'));
+    if(mapId('SUP002')) Core.Highlight.register('NBT-TRA-SUP002', mapId('SUP002'));
+    if(mapId('SUP003')) Core.Highlight.register('NBT-TRA-SUP003', mapId('SUP003'));
+    if(mapId('ai_textb2')) Core.Highlight.register('NBT-TRA-FLO001', mapId('ai_textb2'));
+    if(mapId('SPP001')) Core.Highlight.register('NBT-TRA-undefined', mapId('SPP001'));
+    if(mapId('SPP001_1')) Core.Highlight.register('NBT-TRA-undefined', mapId('SPP001_1'));
+    
+    Core.Highlight.equipIfPending();
+  }
+
+  function safeInit() {
+    const checkExist = () => {
+      // Check if first element of each type exists if configured
+      const ready = 
+        (!config.pumps.length || document.getElementById("SUP001")) &&
+        (!config.pits.length || document.getElementById("SPT001")) &&
+        (!config.ai_textb.length || document.getElementById("ai_textb2")) &&
+        (!config.selectors.length || document.getElementById("SPP001"));
+        
+      if (ready) { 
+        initSymbols(); 
+      } else { 
+        setTimeout(checkExist, 50); 
+      }
+    };
+    checkExist();
+  }
+
+  if (document.readyState === "complete") { safeInit(); } else { window.addEventListener("load", safeInit); }
+
+  // Refresh Function (Generic)
+  function refreshTRA(pumps, pits, aiSymbols, selectorSymbols, PanelMode, PanelRemote, data, alarms) {
+    if (!data || !alarms) return;
+    try {
+      // Pits
+      config.pits.forEach((pitId, i) => {
+        if (pits[i]) {
+          const cls = pits[i].getVisualClass(data, alarms, LOC);
+          pits[i].update(cls.pct, cls.visualClass);
+          pits[i].showOverride(cls.override);
+        }
+      });
+
+      // Pumps
+      pumps.forEach(pump => {
+        if (pump) {
+          const cls = pump.getVisualClass(data, alarms, LOC);
+          pump.update(cls.visualClass);
+          pump.showOverride((cls.run?.mo_i) || (cls.trip?.mo_i));
+        }
+      });
+
+      // AI
+      config.ai_textb?.forEach((aiId, i) => {
+        if (aiSymbols[i]) {
+          const cls = aiSymbols[i].getVisualClass(data, alarms, LOC);
+          if (cls.value !== null) {
+            aiSymbols[i].update(cls.value, cls.limits, cls.decimals, cls.flash);
+            aiSymbols[i].showOverride(cls.override);
+          }
+        }
+      });
+
+      // Selectors
+      config.selectors.forEach((sel, i) => {
+          if (selectorSymbols[i]) {
+              const tagSuffix = sel.type === 'mode' ? 'Panel.Mode' : 'Panel.LocalRemote';
+              const cls = selectorSymbols[i].getVisualClass(data, LOC, tagSuffix);
+              if (cls.state) selectorSymbols[i].update(cls.state);
+              selectorSymbols[i].showOverride(cls.override);
+          }
+      });
+
+    } catch (err) {
+      console.error("TRA mimic refresh failed:", err);
+    }
+  }
+
+  function initSymbols() {
+    const initTasks = [];
+
+    // Pumps
+    
+    initTasks.push(Symbols.Pump.init('SUP001', {
+        equipKey: 'NBT-TRA-SUP001',
+        faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SUP", equipId: "001" }),
+        loc: LOC,
+        noAutoRefresh: true,
+        doc: document
+    }));
+    initTasks.push(Symbols.Pump.init('SUP002', {
+        equipKey: 'NBT-TRA-SUP002',
+        faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SUP", equipId: "002" }),
+        loc: LOC,
+        noAutoRefresh: true,
+        doc: document
+    }));
+    initTasks.push(Symbols.Pump.init('SUP003', {
+        equipKey: 'NBT-TRA-SUP003',
+        faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SUP", equipId: "003" }),
+        loc: LOC,
+        noAutoRefresh: true,
+        doc: document
+    }));
+
+    // Pits
+    
+    initTasks.push(Symbols.Pit.init('SPT001', {
+        equipKey: 'NBT-TRA-SPT001',
+        faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SPT", equipId: "001" }),
+        loc: LOC,
+        noAutoRefresh: true,
+        doc: document
+    }));
+
+    // AI
+    const aiSymbols = [];
+    
+    initTasks.push(
+        Symbols.AI_TEXTB.init('ai_textb2', {
+          loc: LOC, sys: SYS, equipId: "001", equipType: "FLO", unit: "L/h",
+          noAutoRefresh: true,
+          doc: document
+        }).then(api => { aiSymbols[0] = api; return api; })
+    );
+
+    // Selectors
+    const selectorSymbols = [];
+    
+    initTasks.push(
+        Symbols.Selector.init('SPP001', {
+          equipKey: 'NBT-TRA-SPP001',
+          type: "mode", // "mode" or "remote"
+          tag: "Panel.Mode",
+          faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SPP", equipId: "001" }),
+          loc: LOC,
+          doc: document
+        }).then(api => { selectorSymbols[0] = api; return api; })
+    );
+    initTasks.push(
+        Symbols.Selector.init('SPP001_1', {
+          equipKey: 'NBT-TRA-SPP001',
+          type: "remote", // "mode" or "remote"
+          tag: "Panel.LocalRemote",
+          faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SPP", equipId: "001" }),
+          loc: LOC,
+          doc: document
+        }).then(api => { selectorSymbols[1] = api; return api; })
+    );
+
+    Promise.all(initTasks).then(symbols => {
+      // Slice symbols back to arrays
+      let offset = 0;
+      const pumpSymbols = symbols.slice(offset, offset + 3); offset += 3;
+      const pitSymbols = symbols.slice(offset, offset + 1); offset += 1;
+      const aiSyms = symbols.slice(offset, offset + 1); offset += 1;
+      const selSyms = symbols.slice(offset, offset + 2);
+
+      const PanelMode = { getVisualClass: () => ({}), update: () => {}, showOverride: () => {} };
+      const PanelRemote = { getVisualClass: () => ({}), update: () => {}, showOverride: () => {} };
+
+      if (Core.Highlight) {
+        registerInitialHighlights();
+        Core.Highlight.equipIfPending();
+      }
+
+      const sm = SCADA?.Core?.SocketManager;
+      if (sm) {
+        const scope = `system:${LOC}`;
+        console.log(`📡 ${LOC}_${SYS}: Direct WS subscription to ${scope}`);
+
+        let cachedPoints = {};
+        let cachedAlarms = [];
+
+        const handleSystemUpdate = (msg) => {
+          if (msg.alarms) {
+            cachedAlarms = Array.isArray(msg.alarms) ? msg.alarms : Object.values(msg.alarms);
+            if (msg.type === 'alarms' || msg.type === 'alarm') {
+              const data = { points: Object.values(cachedPoints) };
+              refreshTRA(pumpSymbols, pitSymbols, aiSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
+              return;
+            }
+          }
+
+          if (msg.type === 'snapshot' && msg.points) {
+            cachedPoints = msg.points;
+            const data = { points: Object.values(cachedPoints) };
+            refreshTRA(pumpSymbols, pitSymbols, aiSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
+          }
+          else if (msg.type === 'update' && msg.diffs?.points) {
+            if (msg.diffs.points.changed) Object.assign(cachedPoints, msg.diffs.points.changed);
+            if (msg.diffs.points.removed) msg.diffs.points.removed.forEach(key => delete cachedPoints[key]);
+            
+            const data = { points: Object.values(cachedPoints) };
+            refreshTRA(pumpSymbols, pitSymbols, aiSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
+          }
+        };
+
+        sm.subscribe(scope, handleSystemUpdate);
+        sm.subscribe('alarms', handleSystemUpdate);
+
+        window.addEventListener('beforeunload', () => {
+          try {
+            sm.unsubscribe(scope, handleSystemUpdate);
+            sm.unsubscribe('alarms', handleSystemUpdate);
+          } catch (e) { }
+        });
+      }
+    });
+
+    console.log("✅ Mimic loaded");
+    if (window.parent) { window.parent.postMessage({ type: "mimicReady" }, "*"); }
+  }
+
+    </script>
+</body>
+</html>

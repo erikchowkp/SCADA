@@ -4,8 +4,8 @@ Phase 6A – Dynamic Mimic Loader (iframe swap)
 Ensures only one mimic instance exists at a time.
 ===============================================================================
 */
-;(function (global) {
-  const SCADA = global.SCADA || (global.SCADA = { Core:{}, UI:{}, Symbols:{}, State:{} });
+; (function (global) {
+  const SCADA = global.SCADA || (global.SCADA = { Core: {}, UI: {}, Symbols: {}, State: {} });
 
   function initMimicNavigation() {
     document.getElementById("mimicPanel")?.remove();
@@ -13,32 +13,32 @@ Ensures only one mimic instance exists at a time.
     const links = document.querySelectorAll('#system-nav .system-link');
     const locButtons = document.querySelectorAll('.sidebar button');
     locButtons.forEach(btn => {
-    btn.addEventListener('click', e => {
+      btn.addEventListener('click', e => {
         locButtons.forEach(b => b.disabled = false);
         btn.disabled = true;
         const newLoc = btn.textContent.trim();
         SCADA.State.currentLocation = newLoc;
         console.log(`📍 Location changed → ${newLoc}`);
-    });
+      });
     });
 
 
     if (!frame || !links.length) return;
     function injectGlobalStyles(frame) {
-        try {
-            // share namespace
-            frame.contentWindow.SCADA = window.SCADA;
+      try {
+        // share namespace
+        frame.contentWindow.SCADA = window.SCADA;
 
-            const targetDoc = frame.contentDocument;
-            if (!targetDoc || !targetDoc.head) {
-              // iframe not ready yet — retry after a short delay
-              setTimeout(() => injectGlobalStyles(frame), 100);
-              return;
-            }
-            const parentBodyStyle = getComputedStyle(document.body);
-            const styleEl = targetDoc.createElement("style");
-            styleEl.id = "global-font-style";
-            styleEl.textContent = `
+        const targetDoc = frame.contentDocument;
+        if (!targetDoc || !targetDoc.head) {
+          // iframe not ready yet — retry after a short delay
+          setTimeout(() => injectGlobalStyles(frame), 100);
+          return;
+        }
+        const parentBodyStyle = getComputedStyle(document.body);
+        const styleEl = targetDoc.createElement("style");
+        styleEl.id = "global-font-style";
+        styleEl.textContent = `
             html, body, button, input, select, textarea, div, span {
                 font-family: ${parentBodyStyle.fontFamily};
                 font-size: ${parentBodyStyle.fontSize};
@@ -46,11 +46,11 @@ Ensures only one mimic instance exists at a time.
             }
             body { background-color: ${parentBodyStyle.backgroundColor}; }
             `;
-            targetDoc.head.appendChild(styleEl);
+        targetDoc.head.appendChild(styleEl);
 
-        } catch (err) {
-            console.warn("⚠️ Could not inject SCADA fonts/colors on initial load:", err);
-        }
+      } catch (err) {
+        console.warn("⚠️ Could not inject SCADA fonts/colors on initial load:", err);
+      }
     }
 
     links.forEach(a => {
@@ -65,7 +65,7 @@ Ensures only one mimic instance exists at a time.
         // Compose full mimic filename (e.g. NBT_TRA.html)
         const file = `${loc}_${system}`;
 
-        SCADA.State.currentSystem = system.replace(/\.html$/,'');
+        SCADA.State.currentSystem = system.replace(/\.html$/, '');
         SCADA.State.currentLocation = loc;
 
         frame.src = `systems/${file}`;
@@ -131,6 +131,8 @@ Ensures only one mimic instance exists at a time.
     }
 
     // --- Set initial title on first load ---
+    // (Disabled to avoid conflict with dynamic loader)
+    /*
     try {
       const titleEl = document.getElementById("mimicTitle");
       if (titleEl && window.titleMap) {
@@ -142,6 +144,7 @@ Ensures only one mimic instance exists at a time.
     } catch (err) {
       console.warn("⚠️ Could not set initial mimic title:", err);
     }
+    */
 
 
   }

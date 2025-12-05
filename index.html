@@ -73,6 +73,19 @@
       overflow: auto;
     }
 
+    #location-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    #location-list button {
+      width: 100%;
+      text-align: left;
+      padding: 8px;
+      cursor: pointer;
+    }
+
     footer {
       background: #ddd;
       padding: 8px;
@@ -483,6 +496,31 @@
     #mimic-wrapper {
       position: relative;
     }
+
+    /* Popup Menu */
+    .popup-menu {
+      position: absolute;
+      bottom: 40px;
+      /* Above footer */
+      background: #333;
+      border: 1px solid #555;
+      border-radius: 4px;
+      padding: 5px 0;
+      min-width: 150px;
+      z-index: 2000;
+      display: none;
+    }
+
+    .popup-menu-item {
+      padding: 8px 12px;
+      color: white;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .popup-menu-item:hover {
+      background: #555;
+    }
   </style>
 </head>
 
@@ -597,10 +635,9 @@
   <!-- === Dynamic Mimic Loader (Phase 6A) === -->
   <main style="display:flex; flex:1; overflow:hidden;">
 
-    <div class="sidebar">
+    <div class="sidebar" id="location-sidebar">
       <h4>Location</h4>
-      <button onclick="selectLocation('NBT')" disabled>NBT</button>
-      <button onclick="selectLocation('SBT')">SBT</button>
+      <div id="location-list"></div>
     </div>
 
     <div class="mimic" id="mimic-wrapper" style="position:relative; flex:1; overflow:hidden;">
@@ -609,7 +646,10 @@
       <script>
         document.addEventListener("DOMContentLoaded", () => {
           // Load initial system (TRA / NBT)
-          SCADA.Core.Loader.loadSystem("TRA", "NBT");
+          // SCADA.Core.Loader.loadSystem("TRA", "NBT");
+
+          // Use selectMimicFile to ensure correct title handling and file loading
+          SCADA.UI.selectMimicFile("NBT_TRA_1.html");
         });
       </script>
 
@@ -739,10 +779,7 @@
 
   <!-- === Footer: System selector === -->
   <footer id="system-nav" class="system-footer">
-    <button onclick="loadSelectedSystem('TRA')">TRA</button>
-    <button onclick="loadSelectedSystem('VENT')">VENT</button>
-    <button onclick="loadSelectedSystem('FIRE')">FIRE</button>
-    <button id="btn-trend" onclick="SCADA.Core.Loader.loadSystem('TREND', null)">Trend</button>
+    <!-- Dynamic Systems -->
   </footer>
 
   <div id="faceplate-overlay" style="display:none;"></div>
@@ -811,16 +848,28 @@
       SCADA.Core.PollManager.start();
     }
     // --- Title Map (centralised) ---
-    window.titleMap = {
-      "alarm": "Alarm List",
-      "event": "Event List",
-      "TREND": "Trend Viewer",
-      "NBT_TRA": "NBT - Northbound Tunnel Low Point Sump",
-      "SBT_TRA": "SBT - Southbound Tunnel Low Point Sump",
-      "VENT": "VENT – Tunnel Ventilation Fans",
-      "FIRE": "FIRE – Fire Alarm & Detection System"
-  
-    };
+    // --- Title Map (centralised) ---
+    window.titleMap = {};
+    fetch('/api/dev/titles')
+      .then(res => res.json())
+      .then(data => {
+        window.titleMap = data;
+        console.log("✅ Loaded mimic titles");
+        // Refresh current title if it was just a filename
+        const titleEl = document.getElementById("mimicTitle");
+        if (titleEl) {
+          const frame = document.getElementById("mimic-frame");
+          if (frame && frame.src) {
+            const src = frame.getAttribute('src');
+            const filename = src.split('/').pop();
+            const key = filename.replace(/\.html$/, '');
+            if (window.titleMap[key]) {
+              titleEl.textContent = window.titleMap[key];
+            }
+          }
+        }
+      })
+      .catch(err => console.error("Failed to load mimic titles:", err));
 
 
     // Clock
@@ -889,7 +938,8 @@
         // 🧭 update title immediately
         const titleEl = document.getElementById("mimicTitle");
         if (titleEl && window.titleMap) {
-          titleEl.textContent = window.titleMap[fileName] || fileName;
+          const key = fileName.replace(/\.html$/, '');
+          titleEl.textContent = window.titleMap[key] || fileName;
         }
 
         // record to history
@@ -897,8 +947,10 @@
           const frame = document.getElementById("mimic-frame");
           if (frame) frame.src = `systems/${fileName}.html`;
           const titleEl = document.getElementById("mimicTitle");
-          if (titleEl && window.titleMap)
-            titleEl.textContent = window.titleMap[fileName] || fileName;
+          if (titleEl && window.titleMap) {
+            const key = fileName.replace(/\.html$/, '');
+            titleEl.textContent = window.titleMap[key] || fileName;
+          }
         });
 
 
@@ -920,11 +972,27 @@
 
     // Load a mimic by its full file name (e.g. "SBT_TRA"), bypassing currentLocation logic.
     async function selectMimicFile(fullName) {
+      console.log(`selectMimicFile called with: ${fullName}`);
       try {
-        const frame = document.getElementById("mimic-frame");
+        let frame = document.getElementById("mimic-frame");
         if (!frame) {
-          console.warn("⚠️ mimic-frame not found in selectMimicFile()");
-          return;
+          console.warn("⚠️ mimic-frame not found, creating new one...");
+          // Ensure Loader cleans up any previous state
+          if (SCADA?.Core?.Loader?.unloadSystem) {
+            SCADA.Core.Loader.unloadSystem();
+          }
+
+          frame = document.createElement("iframe");
+          frame.id = "mimic-frame";
+          frame.style.cssText = "width:100%;height:100%;border:none;";
+          const container = document.getElementById("mimic-container");
+          if (container) {
+            container.appendChild(frame);
+            if (SCADA?.Core?.Loader) SCADA.Core.Loader._iframe = frame;
+          } else {
+            console.error("mimic-container not found!");
+            return;
+          }
         }
 
         // stop all running refresh timers
@@ -934,21 +1002,37 @@
         if (SCADA?.Core?.Highlight?.clear) SCADA.Core.Highlight.clear();
 
         // load mimic into iframe
-        frame.src = `systems/${fullName}.html`;
+        const finalPath = fullName.endsWith('.html') ? `systems/${fullName}` : `systems/${fullName}.html`;
+
+        // Robust check: compare absolute URLs
+        const targetUrl = new URL(finalPath, window.location.href).href;
+
+        if (frame.src === targetUrl) {
+          console.log("Reloading current page...");
+          frame.contentWindow.location.reload();
+        } else {
+          console.log("Navigating to:", finalPath);
+          frame.src = finalPath;
+        }
 
         // 🧭 update title right away
         const titleEl = document.getElementById("mimicTitle");
-        if (titleEl && window.titleMap)
-          titleEl.textContent = window.titleMap[fullName] || fullName;
+        if (titleEl && window.titleMap) {
+          const key = fullName.replace(/\.html$/, '');
+          titleEl.textContent = window.titleMap[key] || fullName;
+        }
 
         // record navigation in history
         recordMimic(fullName, () => {
           const frame = document.getElementById("mimic-frame");
-          if (frame) frame.src = `systems/${fullName}.html`;
+          if (frame) frame.src = finalPath;
           const titleEl = document.getElementById("mimicTitle");
-          if (titleEl && window.titleMap)
-            titleEl.textContent = window.titleMap[fullName] || fullName;
+          if (titleEl && window.titleMap) {
+            const key = fullName.replace(/\.html$/, '');
+            titleEl.textContent = window.titleMap[key] || fullName;
+          }
         });
+
 
       } catch (err) {
         document.getElementById("mimicPanel").innerHTML =
@@ -1069,10 +1153,14 @@
       // trim forward stack
       mimicHistory = mimicHistory.slice(0, mimicIndex + 1);
 
+      // Ensure we store the correct title if available, stripping extension
+      const key = name.replace(/\.html$/, '');
+      const title = window.titleMap?.[key] || name;
+
       mimicHistory.push({
         name,
         loaderFn,
-        title: window.titleMap?.[name] || name
+        title: title
       });
 
       mimicIndex = mimicHistory.length - 1;
@@ -1102,7 +1190,8 @@
           // --- Force sync title from titleMap ---
           const titleEl = document.getElementById("mimicTitle");
           if (titleEl) {
-            titleEl.textContent = (window.titleMap && window.titleMap[item.name]) || item.name;
+            const key = item.name.replace(/\.html$/, '');
+            titleEl.textContent = window.titleMap?.[key] || item.title || item.name;
           }
         } catch (err) {
           console.error("⚠️ History loaderFn failed:", err);
@@ -1195,36 +1284,125 @@
 
 </script>
 <script>
-  function selectLocation(loc) {
-    console.log(`📍 Location selected → ${loc}`);
-    SCADA.State.selectedLocation = loc;
+  // --- Dynamic Navigation Logic ---
+  let navConfig = { locations: [] };
 
-    // Highlight active button
-    document.querySelectorAll('.sidebar button').forEach(b => b.disabled = false);
-    event.target.disabled = true;
-  }         
-</script>
-<script>
-  function loadSelectedSystem(sysType) {
-    const loc = SCADA.State.selectedLocation;
-    if (!loc) {
-      alert("Please select a location (NBT / SBT) first.");
+  // Fetch navigation config on load
+  fetch('/api/dev/navigation')
+    .then(res => res.json())
+    .then(data => {
+      navConfig = data;
+      renderLocations();
+      // Select first location by default if available
+      if (navConfig.locations.length > 0) {
+        selectLocation(navConfig.locations[0].id);
+      }
+    })
+    .catch(err => console.error("Failed to load navigation:", err));
+
+  function renderLocations() {
+    const list = document.getElementById('location-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    navConfig.locations.forEach(loc => {
+      const btn = document.createElement('button');
+      btn.textContent = loc.id;
+      btn.onclick = () => selectLocation(loc.id);
+      btn.dataset.loc = loc.id;
+      list.appendChild(btn);
+    });
+  }
+
+  function selectLocation(locId) {
+    SCADA.State.currentLocation = locId;
+    console.log(`📍 Location selected → ${locId}`);
+
+    // Update UI
+    document.querySelectorAll('#location-list button').forEach(b => {
+      b.disabled = (b.dataset.loc === locId);
+    });
+
+    renderSystems(locId);
+  }
+
+  function renderSystems(locId) {
+    const footer = document.getElementById('system-nav');
+    if (!footer) return;
+    footer.innerHTML = '';
+
+    const loc = navConfig.locations.find(l => l.id === locId);
+    if (!loc || !loc.systems) return;
+
+    loc.systems.forEach(sys => {
+      const btn = document.createElement('button');
+      btn.textContent = sys.id;
+      btn.onclick = (e) => handleSystemClick(sys, e);
+      footer.appendChild(btn);
+    });
+
+    // Add Trend button (static)
+    const trendBtn = document.createElement('button');
+    trendBtn.textContent = 'Trend';
+    trendBtn.onclick = () => SCADA.Core.Loader.loadSystem('TREND', null);
+    footer.appendChild(trendBtn);
+  }
+
+  function handleSystemClick(sys, event) {
+    console.log("handleSystemClick called for:", sys);
+    // Remove existing popup
+    const existingPopup = document.querySelector('.popup-menu');
+    if (existingPopup) existingPopup.remove();
+
+    if (!sys.pages || sys.pages.length === 0) {
+      // Fallback or empty
+      console.warn("No pages for system", sys.id);
       return;
     }
 
-    // clear refresh timers and highlights if needed
-    if (SCADA?.Core?.TimerManager) {
-      ["AlarmRefresh", "EventRefresh", "SystemRefresh", "GlobalEventRefresh"].forEach(name => {
-        const TM = SCADA.Core.TimerManager;
-        if (TM.has?.(name)) TM.clear(name);
-      });
+    if (sys.pages.length === 1) {
+      // Single page - load directly
+      SCADA.UI.selectMimicFile(sys.pages[0].file);
+    } else {
+      // Multiple pages - show popup
+      showPageMenu(sys.pages, event.target);
     }
-    if (SCADA?.Core?.Highlight?.clear) SCADA.Core.Highlight.clear();
+  }
 
-    // call Loader
-    SCADA.Core.Loader.loadSystem(sysType, loc);
+  function showPageMenu(pages, targetBtn) {
+    const menu = document.createElement('div');
+    menu.className = 'popup-menu';
+
+    pages.forEach(page => {
+      const item = document.createElement('div');
+      item.className = 'popup-menu-item';
+      item.textContent = page.title || page.file;
+      item.onclick = () => {
+        SCADA.UI.selectMimicFile(page.file);
+        menu.remove();
+      };
+      menu.appendChild(item);
+    });
+
+    document.body.appendChild(menu);
+
+    // Position menu
+    const rect = targetBtn.getBoundingClientRect();
+    menu.style.left = `${rect.left}px`;
+    menu.style.bottom = `${window.innerHeight - rect.top + 5}px`; // Above button
+    menu.style.display = 'block';
+
+    // Close on click outside
+    const closeHandler = (e) => {
+      if (!menu.contains(e.target) && e.target !== targetBtn) {
+        menu.remove();
+        document.removeEventListener('click', closeHandler);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', closeHandler), 0);
   }
 </script>
+
 
 </body>
 

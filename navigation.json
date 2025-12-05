@@ -1,0 +1,54 @@
+{
+  "locations": [
+    {
+      "id": "NBT",
+      "name": "Northbound Tunnel",
+      "systems": [
+        {
+          "id": "TRA",
+          "name": "Drainage",
+          "pages": [
+            {
+              "file": "NBT_TRA_1.html",
+              "title": "NBT - Northbound Tunnel Low Point Sump"
+            },
+            {
+              "file": "NBT_TRA_2.html",
+              "title": "test"
+            },
+            {
+              "file": "NBT_TRA_4.html",
+              "title": "jj"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SBT",
+      "name": "Southbound Tunnel",
+      "systems": [
+        {
+          "id": "TRA",
+          "name": "Drainage",
+          "pages": [
+            {
+              "file": "SBT_TRA_1.html",
+              "title": "SBT - Northbound Tunnel Low Point Sump"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "NTB",
+      "name": "North Technical Building",
+      "systems": []
+    },
+    {
+      "id": "STB",
+      "name": "South Technical Building",
+      "systems": []
+    }
+  ]
+}

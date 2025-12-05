@@ -136,7 +136,14 @@ Now registered under SCADA.UI.Faceplate.
         const closeFb = points.find(p => p.tag.includes("CloseFb"));
         if (openFb && openFb.value === 1) state = "Open";
         else if (closeFb && closeFb.value === 1) state = "Closed";
+      } else if (faceplateType === "SPP") {
+        const mode = points.find(p => p.tag.includes("Mode"));
+        const remote = points.find(p => p.tag.includes("LocalRemote"));
+        if (mode) state = mode.value == 1 ? (mode.state1 || "Manual") : (mode.state0 || "Auto");
+        else if (remote) state = remote.value == 1 ? (remote.state1 || "Local") : (remote.state0 || "Remote");
       }
+
+      console.log(`Faceplate Refresh: Equip=${faceplateEquip}, Type=${faceplateType}, PointsFound=${points.length}, State=${state}`);
 
       const latestTs = points
         .map(p => new Date(p.ts))
