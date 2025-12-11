@@ -21,6 +21,26 @@
               "title": "jj"
             }
           ]
+        },
+        {
+          "id": "TVEN",
+          "name": "Tunnel Ventilation",
+          "pages": [
+            {
+              "file": "NBT_TVEN_1.html",
+              "title": "TVEN schem"
+            }
+          ]
+        },
+        {
+          "id": "Layout",
+          "name": "Layout",
+          "pages": [
+            {
+              "file": "NBT_Layout_1.html",
+              "title": "test"
+            }
+          ]
         }
       ]
     },
@@ -37,18 +57,53 @@
               "title": "SBT - Northbound Tunnel Low Point Sump"
             }
           ]
+        },
+        {
+          "id": "TVEN",
+          "name": "Tunnel Ventilation",
+          "pages": [
+            {
+              "file": "SBT_TVEN_1.html",
+              "title": "TV"
+            }
+          ]
         }
       ]
     },
     {
-      "id": "NTB",
-      "name": "North Technical Building",
+      "id": "NTSB",
+      "name": "North Technical Service Building",
       "systems": []
     },
     {
-      "id": "STB",
-      "name": "South Technical Building",
-      "systems": []
+      "id": "STSB",
+      "name": "South Technical Service Building",
+      "systems": [
+        {
+          "id": "Layout",
+          "name": "Layout",
+          "pages": [
+            {
+              "file": "STSB_Layout_1.html",
+              "title": "BGG665"
+            }
+          ]
+        },
+        {
+          "id": "TVEN",
+          "name": "Tunnel Ventilation",
+          "pages": [
+            {
+              "file": "STSB_TVEN_1.html",
+              "title": "TVC"
+            },
+            {
+              "file": "STSB_TVEN_2.html",
+              "title": "TVB"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

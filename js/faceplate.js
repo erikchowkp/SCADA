@@ -125,7 +125,7 @@ Now registered under SCADA.UI.Faceplate.
 
       // ---- STATUS ----
       let state = "Unknown";
-      if (faceplateType === "SUP" || faceplateType === "FAN") {
+      if (faceplateType === "SUP" || faceplateType === "FAN" || faceplateType === "TFAN") {
         const runFb = points.find(p => p.tag.includes("RunFb"));
         const trip = points.find(p => p.tag.includes("Trip"));
         if (trip && trip.value === 1) state = "Tripped";
@@ -329,6 +329,39 @@ Now registered under SCADA.UI.Faceplate.
           btns.style.flexDirection = "row";
           btns.style.gap = "10px";
           btns.appendChild(startBtn);
+          btns.appendChild(stopBtn);
+
+          wrapper.appendChild(btns);
+          controlTab.appendChild(wrapper);
+        } else if (faceplateType === "TFAN") {
+          const wrapper = document.createElement("div");
+          const label = document.createElement("div");
+          label.innerText = "Fan Control:";
+          label.style.fontWeight = "bold";
+          wrapper.appendChild(label);
+
+          const loc = points[0].loc;
+          const equipLabel = points[0].label;
+
+          const fwdBtn = document.createElement("button");
+          fwdBtn.innerText = "Forward";
+          fwdBtn.onclick = () => SCADA.Core.sendCmd(`${loc}:${equipLabel}.CmdFwd`, 1);
+
+          const bwdBtn = document.createElement("button");
+          bwdBtn.innerText = "Backward";
+          bwdBtn.onclick = () => SCADA.Core.sendCmd(`${loc}:${equipLabel}.CmdBwd`, 1);
+
+          const stopBtn = document.createElement("button");
+          stopBtn.innerText = "Stop";
+          stopBtn.onclick = () => SCADA.Core.sendCmd(`${loc}:${equipLabel}.CmdStop`, 1);
+
+          const btns = document.createElement("div");
+          btns.style.marginLeft = "14px";
+          btns.style.marginTop = "6px";
+          btns.style.display = "flex";
+          btns.style.gap = "10px";
+          btns.appendChild(fwdBtn);
+          btns.appendChild(bwdBtn);
           btns.appendChild(stopBtn);
 
           wrapper.appendChild(btns);

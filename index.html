@@ -805,6 +805,7 @@
 <!-- === Reusable Symbol Components === -->
 <script src="symbols/baseSymbol.js"></script>
 <script src="symbols/pump.js"></script>
+<script src="symbols/tfan.js"></script>
 <script src="symbols/selector.js"></script>
 <script src="symbols/pit.js"></script>
 <script src="symbols/ai_textb.js"></script>
@@ -816,7 +817,6 @@
 <script src="js/core/override.js"></script>
 
 <!-- === Mimic Mapping / Navigation === -->
-<script src="js/mimicMap.js"></script>
 <script src="js/core/mimicNav.js"></script>
 <script>
   window.addEventListener('DOMContentLoaded', () => {
@@ -1001,6 +1001,9 @@
         // clear previous highlights
         if (SCADA?.Core?.Highlight?.clear) SCADA.Core.Highlight.clear();
 
+        // 🛑 Fix: Clear any stale onload handlers (e.g. from Loader.js) to prevent title Reversion
+        if (frame) frame.onload = null;
+
         // load mimic into iframe
         const finalPath = fullName.endsWith('.html') ? `systems/${fullName}` : `systems/${fullName}.html`;
 
@@ -1184,6 +1187,9 @@
           // 🛡 Guard BEFORE running loader so Loader won't re-record this entry
           window.__lastHistoryKey = item.name;
 
+          // 🛑 Fix: Clear any stale listener (e.g. from Trend) before restoring history
+          if (frame) frame.onload = null;
+
           // run loader (mimic OR alarm/event)
           item.loaderFn();
 
@@ -1238,8 +1244,7 @@
     }
   });
 
-  // =====================================================
-  // 🔧 SCADA.UI.updateFilterMarker(page, hasFilter)
+  // =====================================================  // 🔧 SCADA.UI.updateFilterMarker(page, hasFilter)
   // -----------------------------------------------------
   // page: "alarm", "event", "trend", etc.
   // hasFilter: true → show marker, false → hide
@@ -1285,13 +1290,13 @@
 </script>
 <script>
   // --- Dynamic Navigation Logic ---
-  let navConfig = { locations: [] };
+  window.navConfig = { locations: [] };
 
   // Fetch navigation config on load
   fetch('/api/dev/navigation')
     .then(res => res.json())
     .then(data => {
-      navConfig = data;
+      window.navConfig = data;
       renderLocations();
       // Select first location by default if available
       if (navConfig.locations.length > 0) {

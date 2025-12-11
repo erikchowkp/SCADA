@@ -10,5 +10,89 @@
     "state": "Cleared",
     "status": "Auto",
     "ack": false
+  },
+  {
+    "tag": "Pit.HighLevel",
+    "time": "2025-12-10  18:52:49.887",
+    "loc": "NBT",
+    "sys": "TRA",
+    "label": "SPT001",
+    "description": "High Level Alarm",
+    "crit": 0,
+    "state": "Cleared",
+    "status": "Normal",
+    "ack": false
+  },
+  {
+    "tag": "SUP001.Trip",
+    "time": "2025-12-10  10:04:10.146",
+    "loc": "NBT",
+    "sys": "TRA",
+    "label": "SUP001",
+    "description": "Trip Status",
+    "crit": 0,
+    "state": "Cleared",
+    "status": "Healthy",
+    "ack": false
+  },
+  {
+    "tag": "Pit.HighLevel",
+    "time": "2025-12-09  12:04:54.624",
+    "loc": "SBT",
+    "sys": "TRA",
+    "label": "SPT001",
+    "description": "High Level Alarm",
+    "crit": 0,
+    "state": "Cleared",
+    "status": "Normal",
+    "ack": false
+  },
+  {
+    "tag": "TFAN002.Mode",
+    "time": "2025-12-10  11:24:04.488",
+    "loc": "NBT",
+    "sys": "TVEN",
+    "label": "TFAN002",
+    "description": "Mode",
+    "crit": 0,
+    "state": "Cleared",
+    "status": "Auto",
+    "ack": false
+  },
+  {
+    "tag": "TFAN002.Trip",
+    "time": "2025-12-10  11:24:32.749",
+    "loc": "NBT",
+    "sys": "TVEN",
+    "label": "TFAN002",
+    "description": "Trip Status",
+    "crit": 0,
+    "state": "Cleared",
+    "status": "Healthy",
+    "ack": false
+  },
+  {
+    "tag": "TFAN001.Mode",
+    "time": "2025-12-10  18:49:55.465",
+    "loc": "NBT",
+    "sys": "TVEN",
+    "label": "TFAN001",
+    "description": "Mode",
+    "crit": 0,
+    "state": "Cleared",
+    "status": "Auto",
+    "ack": false
+  },
+  {
+    "tag": "TFAN001.Trip",
+    "time": "2025-12-10  18:50:54.505",
+    "loc": "NBT",
+    "sys": "TVEN",
+    "label": "TFAN001",
+    "description": "Trip Status",
+    "crit": 0,
+    "state": "Cleared",
+    "status": "Healthy",
+    "ack": false
   }
 ]

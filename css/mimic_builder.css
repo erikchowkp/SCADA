@@ -428,3 +428,19 @@ body {
     font-size: 0.85em;
     color: #666;
 }
+
+/* Selection Box */
+#selectionBox {
+    position: absolute;
+    border: 1px solid #007bff;
+    background-color: rgba(0, 123, 255, 0.1);
+    display: none;
+    pointer-events: none;
+    /* Let events pass through to canvas */
+    z-index: 1000;
+}
+
+#selectionBox.touch-select {
+    border: 1px dashed #28a745;
+    background-color: rgba(40, 167, 69, 0.1);
+}

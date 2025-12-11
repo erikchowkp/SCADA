@@ -11,10 +11,32 @@ app.use(express.static(__dirname)); // serve index.html, Simulator.html, event.h
 // -----------------------------------------------------------------------------
 // PATHS
 // -----------------------------------------------------------------------------
-const defsPath = path.join(__dirname, "defs", "TRA.json");
+// -----------------------------------------------------------------------------
+// PATHS
+// -----------------------------------------------------------------------------
+const defsDir = path.join(__dirname, "defs");
+const plcDefsDir = path.join(__dirname, "plc_defs");
 const eventsPath = path.join(__dirname, "events.json");
 const alarmsPath = path.join(__dirname, "alarm.json");
-const plcDefsPath = path.join(__dirname, "plc_defs", "TRA_plc.json");
+
+// Helper: Load all JSON points from a directory and merge them
+function loadPointsFromDir(dir) {
+  if (!fs.existsSync(dir)) return [];
+  const files = fs.readdirSync(dir).filter(f => f.endsWith(".json"));
+  let allPoints = [];
+  for (const f of files) {
+    try {
+      const p = path.join(dir, f);
+      const data = JSON.parse(fs.readFileSync(p, "utf8"));
+      if (data.points && Array.isArray(data.points)) {
+        // Tag valid points with source file for later writes
+        const pts = data.points.map(pt => ({ ...pt, _sourceFile: f }));
+        allPoints = allPoints.concat(pts);
+      }
+    } catch (e) { console.error(`Failed to load ${f}:`, e.message); }
+  }
+  return allPoints;
+}
 
 // ============================================================================
 // Phase 9.1 – Historian Core (sql.js portable)
@@ -131,43 +153,19 @@ function ensurePointsArray(jsonLike) {
   return { points };
 }
 // -----------------------------------------------------------------------------
-// First-run seeding: if plc_defs missing, seed it from defs
+// Seeding logic removed in favor of multi-file loading
 // -----------------------------------------------------------------------------
-(function seedPlcIfMissing() {
-  try {
-    if (!fs.existsSync(path.join(__dirname, "plc_defs"))) {
-      fs.mkdirSync(path.join(__dirname, "plc_defs"));
-    }
-    if (!fs.existsSync(plcDefsPath)) {
-      const scadaJson = readJsonFileSafe(defsPath) || { points: [] };
-      // strip mo_i from seed if present
-      const scada = ensurePointsArray(scadaJson);
-      const plcSeed = {
-        points: scada.points.map(p => {
-          const { mo_i, ...rest } = p;
-          return rest;
-        })
-      };
-      writeJsonFileSafe(plcDefsPath, plcSeed);
-      console.log("Seeded plc_defs/TRA_plc.json from defs/TRA.json");
-    }
-  } catch (e) {
-    console.error("Seed PLC defs failed:", e.message);
-  }
-})();
 
 
 // -----------------------------------------------------------------------------
 // LOAD INITIAL DATA
 // -----------------------------------------------------------------------------
-let defs = { system: "TRA", points: [] };
-if (fs.existsSync(defsPath)) {
-  defs = JSON.parse(fs.readFileSync(defsPath, "utf8"));
-  // 🔄 MIGRATION FIX: Ensure tags are computed for SCADA points too
-  const normalized = ensurePointsArray(defs);
-  defs.points = normalized.points;
-  console.log("Loaded defs/NBT_TRA.json with", defs.points.length, "points");
-}
+let defs = { system: "SCADA", points: [] };
+defs.points = loadPointsFromDir(defsDir);
+// 🔄 MIGRATION FIX: Ensure tags are computed for SCADA points too
+const normalized = ensurePointsArray(defs);
+defs.points = normalized.points;
+console.log(`Loaded ${defs.points.length} points from ${defsDir}`);
 
 let events = [];
 if (fs.existsSync(eventsPath)) {
@@ -178,9 +176,8 @@ if (fs.existsSync(eventsPath)) {
 // -----------------------------------------------------------------------------
 // HELPERS
 // -----------------------------------------------------------------------------
-function saveDefs() {
-  fs.writeFileSync(defsPath, JSON.stringify(defs, null, 2), "utf8");
-}
+// function saveDefs() REMOVED (handled per-file now)
+// function saveEvents() ... kept
 function saveEvents() {
   fs.writeFileSync(eventsPath, JSON.stringify(events, null, 2), "utf8");
 }
@@ -333,10 +330,10 @@ app.use("/api/dev", devApi);
 //   - If SCADA point has mo_i === true, DO NOT copy PLC value into it
 // -----------------------------------------------------------------------------
 function syncPlcToScada() {
-  const plcJson = readJsonFileSafe(plcDefsPath);
-  if (!plcJson) return;
+  const plcPoints = loadPointsFromDir(plcDefsDir);
+  if (!plcPoints.length) return;
 
-  const plc = ensurePointsArray(plcJson);
+  const plc = { points: plcPoints };
 
   // 🔑 Use global `defs` object instead of reading from disk
   // This eliminates race condition with /api/override
@@ -517,9 +514,8 @@ function syncPlcToScada() {
   });
 
   // 3) Persist SCADA if we copied anything from PLC
-  if (dirty) {
-    saveDefs(); // Use existing saveDefs() helper
-  }
+  // if (dirty) { saveDefs(); } // Removed as per multi-file refactor. Persistence not required for runtime sync.
+
   if (!firstSyncDone) firstSyncDone = true;
 
   // === Phase 9.1: Historian sampling (AI only) ==============================
@@ -551,9 +547,11 @@ function syncPlcToScada() {
     const hasPointChanges =
       Object.keys(pointsDiff.changed).length || pointsDiff.removed.length;
 
+    // Correctly update sharedCache regardless of diff
+    sharedCache.points = nextPoints;
+
     if (hasPointChanges) {
       cursor += 1;
-      sharedCache.points = nextPoints;
 
       // Determine system scopes from changed tags
       const systemScopes = new Set();
@@ -593,10 +591,10 @@ app.get("/api/read", (req, res) => {
   res.set("Cache-Control", "no-store");
   try {
     // Use global defs object for SCADA data
-    const plcJson = readJsonFileSafe(plcDefsPath) || { points: [] };
-    const plc = ensurePointsArray(plcJson);
+    const plcPoints = loadPointsFromDir(plcDefsDir);
+    const plc = { points: plcPoints };
 
-    // Merge by (loc + tag)
+    // Merge by (loc + tag) merge map...
     const mergedMap = new Map();
 
     // Start from global SCADA defs
@@ -642,13 +640,12 @@ app.get("/api/read", (req, res) => {
 });
 
 
-// Read the PLC definition (plc_defs/TRA_plc.json)
+// Read All PLC definitions
 app.get("/api/read_plc", (req, res) => {
   res.set("Cache-Control", "no-store");
   try {
-    const plcDefsPath = path.join(__dirname, "plc_defs", "TRA_plc.json");
-    const plcJson = JSON.parse(fs.readFileSync(plcDefsPath, "utf8"));
-    res.json(plcJson);
+    const points = loadPointsFromDir(plcDefsDir);
+    res.json({ points });
   } catch (e) {
     console.error("read_plc error:", e.message);
     res.status(500).json({ error: "Failed to read PLC defs" });
@@ -763,15 +760,11 @@ app.post("/api/plc_write", (req, res) => {
     // 1️⃣ Split "LOC:Tag"  →  e.g.  "SBT:Pump1.StartCmd"
     const [locPart, baseTag] = tag.includes(":") ? tag.split(":") : [null, tag];
 
-    // 2️⃣ Load PLC defs
-    const plcJson = readJsonFileSafe(plcDefsPath);
-    if (!plcJson || !plcJson.points)
-      return res.status(500).json({ error: "PLC defs missing" });
-
-    const plc = ensurePointsArray(plcJson);
+    // 2️⃣ Load ALL PLC defs to find which file owns this point
+    const allPlc = loadPointsFromDir(plcDefsDir);
 
     // 3️⃣ Find matching point by both tag + location
-    const pt = plc.points.find(
+    const pt = allPlc.find(
       p => p.tag === baseTag && (!locPart || p.loc === locPart)
     );
 
@@ -780,12 +773,24 @@ app.post("/api/plc_write", (req, res) => {
       return res.status(404).json({ error: `PLC point not found: ${tag}` });
     }
 
-    // 4️⃣ Update PLC value
+    if (!pt._sourceFile) {
+      return res.status(500).json({ error: `Source file unknown for point ${tag}` });
+    }
+
+    // 4️⃣ Update the specific file
+    const targetPath = path.join(plcDefsDir, pt._sourceFile);
+    const fileJson = readJsonFileSafe(targetPath);
+    if (!fileJson || !fileJson.points) return res.status(500).json({ error: "Failed to read target PLC file" });
+
+    const targetPt = fileJson.points.find(p => p.tag === baseTag && (!locPart || p.loc === locPart));
+    if (!targetPt) return res.status(404).json({ error: "Point missing in source file" });
+
     const next = Number(value);
-    pt.value = next;
-    pt.q = "Good";
-    pt.ts = isoLocalWithMs(new Date());
-    writeJsonFileSafe(plcDefsPath, plc);
+    targetPt.value = next;
+    targetPt.q = "Good";
+    targetPt.ts = isoLocalWithMs(new Date());
+
+    writeJsonFileSafe(targetPath, fileJson);
 
     // 5️⃣ Log Cmd event only for DO points when user triggers (value = 1)
     if (pt.signalType === "DO" && Number(value) === 1) {
@@ -820,19 +825,29 @@ app.post("/api/plc_write", (req, res) => {
 app.post("/api/plc_touch", (req, res) => {
   const { loc, tag } = req.body || {};
   try {
-    const plcJson = readJsonFileSafe(plcDefsPath);
-    if (!plcJson) return res.status(500).json({ error: "PLC defs missing" });
+    // 2️⃣ Load ALL PLC & Find Point
+    const allPlc = loadPointsFromDir(plcDefsDir);
+    const pt = allPlc.find(p => `${p.loc}:${p.tag}` === fullKey);
 
-    const plc = ensurePointsArray(plcJson);
-    const fullKey = `${loc}:${tag}`;
-    const pt = plc.points.find(p => `${p.loc}:${p.tag}` === fullKey);
     if (!pt) {
       return res.status(404).json({ error: `Point ${fullKey} not found` });
     }
-    pt.ts = isoLocalWithMs(new Date());
-    writeJsonFileSafe(plcDefsPath, plc);
-    console.log(`[PLC TOUCH] Updated ts for ${fullKey}`);
-    res.json({ ok: true, ts: pt.ts });
+
+    if (!pt._sourceFile) return res.status(500).json({ error: "Source file unknown" });
+
+    // 3️⃣ Update specific file
+    const targetPath = path.join(plcDefsDir, pt._sourceFile);
+    const fileJson = readJsonFileSafe(targetPath);
+    if (fileJson && fileJson.points) {
+      const filePt = fileJson.points.find(p => `${p.loc}:${p.tag}` === fullKey);
+      if (filePt) {
+        filePt.ts = isoLocalWithMs(new Date());
+        writeJsonFileSafe(targetPath, fileJson);
+        console.log(`[PLC TOUCH] Updated ts for ${fullKey}`);
+        return res.json({ ok: true, ts: filePt.ts });
+      }
+    }
+    res.status(500).json({ error: "Failed to save touch" });
   } catch (err) {
     console.error("/api/plc_touch error:", err.message);
     res.status(500).json({ error: err.message });
@@ -950,24 +965,40 @@ app.post("/api/override", (req, res) => {
       sPt.ts = isoLocalWithMs(new Date());
       updateAlarmsFromPoint(sPt, sPt.value);
     } else {
-      // clear override → pull latest PLC value
-      try {
-        const plcJson = readJsonFileSafe(plcDefsPath);
-        const plc = ensurePointsArray(plcJson);
-        const plcPt = plc.points.find(p => p.loc === loc && p.tag === tag);
-        if (plcPt) {
-          sPt.value = plcPt.value;
-          sPt.q = plcPt.q || "Good";
-          sPt.ts = plcPt.ts || new Date().toISOString();
+      // If clearing manual override, try to revert to current PLC value from ANY plc file
+      if (!mo_i) {
+        try {
+          const allPlc = loadPointsFromDir(plcDefsDir);
+          const plcPt = allPlc.find(p => p.loc === loc && p.tag === tag);
+          if (plcPt) {
+            sPt.value = plcPt.value;
+            sPt.q = plcPt.q || "Good";
+            sPt.ts = plcPt.ts || new Date().toISOString();
+          }
+        } catch (err) {
+          console.warn("PLC read during MO clear failed:", err.message);
         }
-      } catch (err) {
-        console.warn("PLC read during MO clear failed:", err.message);
+        updateAlarmsFromPoint(sPt, sPt.value);
       }
-      updateAlarmsFromPoint(sPt, sPt.value);
-    }
+    } // End of if(mo_i) else
 
-    // 5️⃣  Save defs to disk
-    saveDefs();
+    // 5️⃣  Save defs to specific file
+    if (sPt._sourceFile) {
+      const targetPath = path.join(defsDir, sPt._sourceFile);
+      const fileJson = readJsonFileSafe(targetPath);
+      if (fileJson && fileJson.points) {
+        const targetPt = fileJson.points.find(p => p.tag === tag && p.loc === loc);
+        if (targetPt) {
+          targetPt.mo_i = sPt.mo_i;
+          targetPt.value = sPt.value;
+          targetPt.q = sPt.q;
+          targetPt.ts = sPt.ts;
+          writeJsonFileSafe(targetPath, fileJson);
+        }
+      }
+    } else {
+      console.warn("Cannot save override: Source file unknown for", loc, tag);
+    }
 
     // 6️⃣  Determine if a real change happened
     const moChanged = before.mo_i !== sPt.mo_i;
@@ -1629,6 +1660,36 @@ app.get("/api/buildinfo", (req, res) => {
   });
 });
 
+// ── /api/dev/layouts ────────────────────────────────────────────────────────
+app.get("/api/dev/layouts", (req, res) => {
+  const layoutDir = path.join(__dirname, "layout");
+  if (!fs.existsSync(layoutDir)) {
+    return res.json([]);
+  }
+  try {
+    const files = fs.readdirSync(layoutDir).filter(f => f.endsWith(".svg") || f.endsWith(".png") || f.endsWith(".jpg"));
+    res.json(files);
+  } catch (err) {
+    console.error("Error listing layouts:", err);
+    res.status(500).json({ error: "Failed to list layouts" });
+  }
+});
+
+// ── /api/dev/mimic_files ────────────────────────────────────────────────────
+app.get("/api/dev/mimic_files", (req, res) => {
+  const systemsDir = path.join(__dirname, "systems");
+  if (!fs.existsSync(systemsDir)) {
+    return res.json([]);
+  }
+  try {
+    const files = fs.readdirSync(systemsDir).filter(f => f.endsWith(".html"));
+    res.json(files);
+  } catch (err) {
+    console.error("Error listing mimic files:", err);
+    res.status(500).json({ error: "Failed to list mimic files" });
+  }
+});
+
 // ============================================================================
 // Phase 9.1 – Trend & History APIs
 // ============================================================================
@@ -1749,3 +1810,84 @@ process.on('exit', () => {
   cleanupLockFile();
 });
 
+
+// -----------------------------------------------------------------------------
+// NAVIGATION INDEXER
+// -----------------------------------------------------------------------------
+let tagIndex = new Map(); // Key: "LOC-SYS-ID" -> Value: ["file1", "file2"]
+
+function buildTagIndex() {
+  console.log("🔄 Rebuilding navigation index...");
+  tagIndex.clear();
+
+  const systemsDir = path.join(__dirname, "systems");
+  if (!fs.existsSync(systemsDir)) {
+    console.warn("⚠️ systems/ directory not found, skipping index.");
+    return;
+  }
+
+  const files = fs.readdirSync(systemsDir).filter(f => f.endsWith(".html"));
+
+  files.forEach(file => {
+    try {
+      const content = fs.readFileSync(path.join(systemsDir, file), "utf8");
+
+      // Strategy 1: Look for explicit 'equipKey' in JS init blocks (Generated mimics)
+      // Pattern: equipKey:\s*['"]([A-Z0-9-]+)['"]
+      const equipKeyRegex = /equipKey:\s*['"]([A-Z0-9-]+)['"]/g;
+      let match;
+      while ((match = equipKeyRegex.exec(content)) !== null) {
+        const key = match[1]; // e.g. "NBT-TRA-SPT001"
+        if (!tagIndex.has(key)) tagIndex.set(key, new Set());
+        tagIndex.get(key).add(file);
+      }
+
+      // Strategy 2: Look for data-equipment attributes alongside LOC/SYS constants
+      const locMatch = /const\s+LOC\s*=\s*['"]([^'"]+)['"]/.exec(content);
+      const sysMatch = /const\s+SYS\s*=\s*['"]([^'"]+)['"]/.exec(content);
+
+      if (locMatch && sysMatch) {
+        const loc = locMatch[1];
+        const sys = sysMatch[1];
+        const dataEquipRegex = /data-equipment=['"]([^'"]+)['"]/g;
+        while ((match = dataEquipRegex.exec(content)) !== null) {
+          const id = match[1]; // e.g. "SPT001"
+          const key = `${loc}-${sys}-${id}`;
+          if (!tagIndex.has(key)) tagIndex.set(key, new Set());
+          tagIndex.get(key).add(file);
+        }
+      }
+
+    } catch (err) {
+      console.error(`Error indexing file ${file}:`, err);
+    }
+  });
+
+  console.log(`✅ Indexed ${tagIndex.size} equipment tags across ${files.length} system files.`);
+}
+
+// Build index on startup
+buildTagIndex();
+
+
+// API: Lookup
+app.get("/api/navigation/lookup", (req, res) => {
+  const { tag } = req.query; // Expecting "LOC-SYS-ID" or similar
+  if (!tag) return res.status(400).json({ error: "Missing tag parameter" });
+
+  // Direct match
+  if (tagIndex.has(tag)) {
+    return res.json({
+      tag,
+      files: Array.from(tagIndex.get(tag))
+    });
+  }
+
+  res.json({ tag, files: [] });
+});
+
+// Dev endpoint to trigger re-index
+app.post("/api/dev/reindex", (req, res) => {
+  buildTagIndex();
+  res.json({ ok: true, size: tagIndex.size });
+});

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>lo</title>
+    <title>TVC</title>
     <style>
         body { margin: 0; padding: 0; background: #ffffff; overflow: hidden; font-family: 'Segoe UI', sans-serif; user-select: none; }
         .symbol-container { position: absolute; }
@@ -14,19 +14,23 @@
 </head>
 <body>
     <div id="mimic-container">
-    <div style="position: absolute; left: 436.9999694824219px; top: 201.99999237060547px; text-align: center;" data-equipment="SUP001" data-location="NBT" data-system="TRA">
-        <div id="sym_1" class="pump-container"></div>
+    <div style="position: absolute; left: 286px; top: 186px; text-align: center;" data-equipment="TFAN001" data-location="NBT" data-system="TVEN">
+        <div id="sym_1" class="tfan-container"></div>
+    </div>
+
+    <div style="position:absolute; left:366px; top:195px; width:50px; height:2px; background-color:#000000; transform:rotate(0deg); transform-origin:center;">
+        <div style="position: absolute; right: -6px; top: 50%; transform: translateY(-50%); border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid #000000;"></div>
     </div>
 </div>
     <script>
-  const LOC = "NBT";
-  const SYS = "Layout";
+  const LOC = "STSB";
+  const SYS = "TVEN";
 
   const config = {
     pits: [],
-    pumps: [{"id":"sym_1","equipment":"SUP001","loc":"NBT","sys":"TRA"}],
+    pumps: [],
     ai_textb: [],
-    tfans: [],
+    tfans: [{"id":"sym_1","equipment":"TFAN001","loc":"NBT","sys":"TVEN"}],
     selectors: []
   };
 
@@ -39,9 +43,9 @@
     const mapId = id => document.getElementById(id);
     
     
-    if(mapId('sym_1')) Core.Highlight.register('NBT-TRA-SUP001', mapId('sym_1'));
     
     
+    if(mapId('sym_1')) Core.Highlight.register('NBT-TVEN-TFAN001', mapId('sym_1'));
     
     
     Core.Highlight.equipIfPending();
@@ -50,10 +54,10 @@
   function safeInit() {
     const checkExist = () => {
       const ready = 
-        (!config.pumps.length || document.getElementById("sym_1")) &&
+        (!config.pumps.length || document.getElementById("undefined")) &&
         (!config.pits.length || document.getElementById("undefined")) &&
         (!config.ai_textb.length || document.getElementById("undefined")) &&
-        (!config.tfans.length || document.getElementById("undefined")) &&
+        (!config.tfans.length || document.getElementById("sym_1")) &&
         (!config.selectors.length || document.getElementById("undefined"));
         
       if (ready) { initSymbols(); } else { setTimeout(checkExist, 50); }
@@ -63,10 +67,10 @@
 
   if (document.readyState === "complete") { safeInit(); } else { window.addEventListener("load", safeInit); }
 
-  function refreshLayout(pumps, pits, aiSymbols, tfanSymbols, selectorSymbols, PanelMode, PanelRemote, data, alarms) {
+  function refreshTVEN(pumps, pits, aiSymbols, tfanSymbols, selectorSymbols, PanelMode, PanelRemote, data, alarms) {
     if (!data || !alarms) return;
     try {
-      // console.log("Refresh Layout Triggered", data.points.length, "points");
+      // console.log("Refresh TVEN Triggered", data.points.length, "points");
       config.pits.forEach((pConf, i) => {
         if (pits[i]) {
           const symLoc = pConf.loc || LOC;
@@ -110,20 +114,13 @@
               selectorSymbols[i].showOverride(cls.override);
           }
       });
-    } catch (err) { console.error("Error in refreshLayout:", err); }
+    } catch (err) { console.error("Error in refreshTVEN:", err); }
   }
 
   function initSymbols() {
     const initTasks = [];
 
     
-    initTasks.push(Symbols.Pump.init('sym_1', {
-        equipKey: 'NBT-TRA-SUP001',
-        faceplate: Core.Naming.buildFullName({ loc: "NBT", sys: "TRA", equipType: "SUP", equipId: "001" }),
-        loc: "NBT",
-        noAutoRefresh: true,
-        doc: document
-    }));
 
     
 
@@ -132,16 +129,25 @@
 
     const tfanSymbols = [];
     
+    initTasks.push(
+        Symbols.TFan.init('sym_1', {
+          equipKey: 'NBT-TVEN-TFAN001',
+          faceplate: Core.Naming.buildFullName({ loc: "NBT", sys: "TVEN", equipType: "TFAN", equipId: "001" }),
+          loc: "NBT",
+          noAutoRefresh: true,
+          doc: document
+        }).then(api => { tfanSymbols[0] = api; return api; })
+    );
 
     const selectorSymbols = [];
     
 
     Promise.all(initTasks).then(symbols => {
       let offset = 0;
-      const pumpSymbols = symbols.slice(offset, offset + 1); offset += 1;
+      const pumpSymbols = symbols.slice(offset, offset + 0); offset += 0;
       const pitSymbols = symbols.slice(offset, offset + 0); offset += 0;
       const aiSyms = symbols.slice(offset, offset + 0); offset += 0;
-      const tfanSyms = symbols.slice(offset, offset + 0); offset += 0;
+      const tfanSyms = symbols.slice(offset, offset + 1); offset += 1;
       const selSyms = symbols.slice(offset, offset + 0);
 
       const PanelMode = { getVisualClass: () => ({}), update: () => {}, showOverride: () => {} };
@@ -154,10 +160,6 @@
 
       const sm = SCADA?.Core?.SocketManager;
       if (sm) {
-        sm.subscribe('system:NBT', handleSystemUpdate);
-        
-        sm.subscribe('alarms', handleSystemUpdate);
-
         let cachedPoints = {};
         let cachedAlarms = [];
 
@@ -166,7 +168,7 @@
             cachedAlarms = Array.isArray(msg.alarms) ? msg.alarms : Object.values(msg.alarms);
             if (msg.type === 'alarms' || msg.type === 'alarm') {
               const data = { points: Object.values(cachedPoints) };
-              refreshLayout(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
+              refreshTVEN(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
               return;
             }
           }
@@ -174,22 +176,28 @@
           if (msg.type === 'snapshot' && msg.points) {
             Object.assign(cachedPoints, msg.points);
             const data = { points: Object.values(cachedPoints) };
-            refreshLayout(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
+            refreshTVEN(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
           }
           else if (msg.type === 'update' && msg.diffs?.points) {
             if (msg.diffs.points.changed) Object.assign(cachedPoints, msg.diffs.points.changed);
             if (msg.diffs.points.removed) msg.diffs.points.removed.forEach(key => delete cachedPoints[key]);
             
             const data = { points: Object.values(cachedPoints) };
-            refreshLayout(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
+            refreshTVEN(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
           }
         };
+
+        sm.subscribe('system:STSB', handleSystemUpdate);
+        sm.subscribe('system:NBT', handleSystemUpdate);
+        
+        sm.subscribe('alarms', handleSystemUpdate);
 
         const scope = `system:${LOC}`;
         sm.subscribe(scope, handleSystemUpdate); 
 
         window.addEventListener('beforeunload', () => {
           try {
+             sm.unsubscribe('system:STSB', handleSystemUpdate);
              sm.unsubscribe('system:NBT', handleSystemUpdate);
             sm.unsubscribe('alarms', handleSystemUpdate);
             sm.unsubscribe('events', handleSystemUpdate);

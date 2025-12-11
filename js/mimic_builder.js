@@ -7,6 +7,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedSys = null;
     let currentFilename = null;
 
+    // --- Page Settings (Added for Zoom Support) ---
+    let currentBackground = null;
+    let canvasWidth = 1200;
+    let canvasHeight = 800;
+
     // --- Elements ---
     const symbolList = document.getElementById('symbolList');
     const canvas = document.getElementById('mimicCanvas');
@@ -27,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Canvas State ---
     let canvasElements = [];
-    let selectedElement = null;
+    let selectedElements = []; // Changed to array
     let draggedItem = null; // Item being dragged from sidebar
 
     // Shared Navigation State (Already declared above)
@@ -181,8 +186,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         canvasElements.push(el);
-        renderCanvas();
-        selectElement(el);
+        renderCanvas(); // Render the new element
+        selectedElements = [el];
+        updateSelectionVisuals();
+        renderProperties(el);
     }
 
     // --- Symbol Cache ---
@@ -219,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
             div.style.left = el.x + 'px';
             div.style.top = el.y + 'px';
 
-            if (el === selectedElement) div.classList.add('selected');
+            if (selectedElements.includes(el)) div.classList.add('selected');
 
             // Render Content
             if (el.type === 'symbol') {
@@ -282,9 +289,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Interaction
+            // Interaction
             div.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // Prevent native drag (images, text)
                 e.stopPropagation();
-                selectElement(el);
+
+                try {
+                    selectElement(el, e.ctrlKey || e.metaKey);
+                } catch (err) {
+                    console.error("Selection error:", err);
+                }
+
                 startDraggingElement(e, el);
             });
 
@@ -292,30 +307,82 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function selectElement(el) {
-        selectedElement = el;
-        renderCanvas(); // Update selection visual
-        renderProperties(el);
+    function updateSelectionVisuals() {
+        // Efficiently update .selected class without re-rendering DOM
+        // 1. Remove from all
+        document.querySelectorAll('.canvas-element.selected').forEach(el => el.classList.remove('selected'));
+
+        // 2. Add to selected
+        selectedElements.forEach(el => {
+            const div = document.getElementById(el.id);
+            if (div) div.classList.add('selected');
+        });
     }
 
-    function startDraggingElement(e, el) {
+    function selectElement(el, ctrlKey = false) {
+        if (ctrlKey) {
+            // Toggle
+            if (selectedElements.includes(el)) {
+                selectedElements = selectedElements.filter(e => e !== el);
+            } else {
+                selectedElements.push(el);
+            }
+        } else {
+            // Single Select (unless already selected and we might drag)
+            // If we click an unselected item, clear others. 
+            // If we click a selected item, keeping it selected is fine. 
+            // But if we have [A, B] and click A without Ctrl, valid behavior is clear others and select A? 
+            // Standard behavior: 
+            // - Mousedown on unselected: Clear, Select New
+            // - Mousedown on selected: Keep selection (for potential drag)
+            if (!selectedElements.includes(el)) {
+                selectedElements = [el];
+            }
+            // If already selected, do nothing on mousedown (wait for click/mouseup to clear if no drag? simplistic for now)
+            // Simplistic: Always clear unless Ctrl? No, that breaks dragging a group.
+            // Let's stick to: If not in selection, select only it.
+            // Let's stick to: If not in selection, select only it.
+        }
+
+        updateSelectionVisuals();
+
+        // Properties: Show info for last selected or clear if multiple?
+        if (selectedElements.length === 1) {
+            renderProperties(selectedElements[0]);
+        } else {
+            renderProperties(null); // Or show "Multiple items selected"
+            if (selectedElements.length > 1) {
+                propertiesPanel.innerHTML = `<div class="empty-state">${selectedElements.length} items selected</div>`;
+            }
+        }
+    }
+
+    function startDraggingElement(e, clickedEl) {
         const startX = e.clientX;
         const startY = e.clientY;
-        const origX = el.x;
-        const origY = el.y;
+
+        // Capture original positions for ALL selected elements
+        selectedElements.forEach(item => {
+            item._origX = item.x;
+            item._origY = item.y;
+        });
 
         function onMouseMove(e) {
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
-            el.x = origX + dx;
-            el.y = origY + dy;
 
-            // Update DOM directly for performance
-            const div = document.getElementById(el.id);
-            if (div) {
-                div.style.left = el.x + 'px';
-                div.style.top = el.y + 'px';
-            }
+            // Move all selected elements
+            selectedElements.forEach(item => {
+                item.x = item._origX + dx;
+                item.y = item._origY + dy;
+
+                // Update DOM
+                const div = document.getElementById(item.id);
+                if (div) {
+                    div.style.left = item.x + 'px';
+                    div.style.top = item.y + 'px';
+                }
+            });
         }
 
         function onMouseUp() {
@@ -328,12 +395,142 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setupCanvasInteractions() {
+        // Selection State
+        let isSelecting = false;
+        let selectionStart = { x: 0, y: 0 };
+
+        // Ensure Selection Box exists
+        let selectionBox = document.getElementById('selectionBox');
+        if (!selectionBox) {
+            selectionBox = document.createElement('div');
+            selectionBox.id = 'selectionBox';
+            document.body.appendChild(selectionBox); // Append to body to overlay everything
+        }
+
         canvas.addEventListener('mousedown', (e) => {
+            // Only start if clicking on the canvas background directly
             if (e.target === canvas) {
-                selectedElement = null;
-                renderCanvas();
-                renderProperties(null);
+                isSelecting = true;
+                selectionStart = { x: e.clientX, y: e.clientY };
+
+                // Reset Selection unless Ctrl is held (optional, usually click background = clear)
+                if (!e.ctrlKey) {
+                    selectedElements = [];
+                    updateSelectionVisuals();
+                    renderProperties(null);
+                }
+
+                // Initialize Box
+                selectionBox.style.display = 'block';
+                selectionBox.style.left = e.clientX + 'px';
+                selectionBox.style.top = e.clientY + 'px';
+                selectionBox.style.width = '0px';
+                selectionBox.style.height = '0px';
+                selectionBox.classList.remove('touch-select');
             }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isSelecting) return;
+
+            const currentX = e.clientX;
+            const currentY = e.clientY;
+
+            // Dimensions
+            const width = Math.abs(currentX - selectionStart.x);
+            const height = Math.abs(currentY - selectionStart.y);
+            const left = Math.min(currentX, selectionStart.x);
+            const top = Math.min(currentY, selectionStart.y);
+
+            // Update Box Style
+            selectionBox.style.width = width + 'px';
+            selectionBox.style.height = height + 'px';
+            selectionBox.style.left = left + 'px';
+            selectionBox.style.top = top + 'px';
+
+            // Check Direction for Mode: Right-to-Left (Touch) vs Left-to-Right (Inside)
+            // If currentX < startX -> We are dragging LEFT -> Touch Mode
+            if (currentX < selectionStart.x) {
+                selectionBox.classList.add('touch-select');
+            } else {
+                selectionBox.classList.remove('touch-select');
+            }
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (!isSelecting) return;
+            isSelecting = false;
+            selectionBox.style.display = 'none';
+
+            // Calculate Final Box in Canvas Coordinates
+            // We need to convert screen coords (clientX) to canvas coords
+            // Canvas might be offset? check canvas.getBoundingClientRect()
+            const rect = canvas.getBoundingClientRect();
+
+            // Get Box Coords relative to Canvas
+            // Box left/top are screen coords. 
+            // Box Relative:
+            const boxScreenLeft = parseInt(selectionBox.style.left);
+            const boxScreenTop = parseInt(selectionBox.style.top);
+            const boxWidth = parseInt(selectionBox.style.width);
+            const boxHeight = parseInt(selectionBox.style.height);
+
+            const boxLeft = boxScreenLeft - rect.left;
+            const boxTop = boxScreenTop - rect.top;
+            const boxRight = boxLeft + boxWidth;
+            const boxBottom = boxTop + boxHeight;
+
+            // Mode
+            const isTouchMode = selectionBox.classList.contains('touch-select');
+
+            // Find Elements
+            canvasElements.forEach(el => {
+                // Element Dimensions (approx if not stored)
+                // We'll trust el.props.width/height for static, or assume symbol size
+                // Best to get from DOM if possible, or fallbacks
+                let elW = 50; let elH = 50;
+                if (el.type === 'static-line' || el.type === 'static-arrow') {
+                    // Lines are tricky, use bounding box of updated coords
+                    const div = document.getElementById(el.id);
+                    if (div) { elW = div.offsetWidth; elH = div.offsetHeight; }
+                } else if (el.props.width) {
+                    elW = parseInt(el.props.width);
+                    elH = parseInt(el.props.height);
+                } else {
+                    // Try to get from DOM
+                    const div = document.getElementById(el.id);
+                    if (div) { elW = div.offsetWidth; elH = div.offsetHeight; }
+                }
+
+                const elLeft = el.x;
+                const elTop = el.y;
+                const elRight = el.x + elW;
+                const elBottom = el.y + elH;
+
+                let isSelected = false;
+
+                if (isTouchMode) {
+                    // Intersection
+                    // !(elLeft > boxRight || elRight < boxLeft || elTop > boxBottom || elBottom < boxTop)
+                    if (elLeft < boxRight && elRight > boxLeft && elTop < boxBottom && elBottom > boxTop) {
+                        isSelected = true;
+                    }
+                } else {
+                    // Inside
+                    // elLeft >= boxLeft && elRight <= boxRight && elTop >= boxTop && elBottom <= boxBottom
+                    if (elLeft >= boxLeft && elRight <= boxRight && elTop >= boxTop && elBottom <= boxBottom) {
+                        isSelected = true;
+                    }
+                }
+
+                if (isSelected) {
+                    if (!selectedElements.includes(el)) selectedElements.push(el);
+                }
+            });
+
+            updateSelectionVisuals();
+            if (selectedElements.length === 1) renderProperties(selectedElements[0]);
+            else if (selectedElements.length > 1) renderProperties(null);
         });
     }
 
@@ -363,8 +560,26 @@ document.addEventListener('DOMContentLoaded', () => {
         inputs.forEach(input => {
             const prop = input.dataset.prop;
 
+            // Special handling for Location Select
+            if (prop === 'locationSelect') {
+                input.innerHTML = '<option value="">Select Location...</option>';
+                if (navData && navData.locations) {
+                    navData.locations.forEach(loc => {
+                        const opt = document.createElement('option');
+                        opt.value = loc.id;
+                        opt.text = `${loc.name} (${loc.id})`;
+                        input.appendChild(opt);
+                    });
+                }
+                input.value = el.props.location || '';
+
+                input.addEventListener('change', () => {
+                    el.props.location = input.value;
+                    renderCanvas();
+                });
+            }
             // Special handling for System Select
-            if (prop === 'systemSelect') {
+            else if (prop === 'systemSelect') {
                 systems.forEach(sys => {
                     const opt = document.createElement('option');
                     opt.value = sys.name; // Using name as ID for now based on file structure
@@ -405,16 +620,64 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Delete Button
-        const delBtn = propertiesPanel.querySelector('[data-action="delete"]');
         if (delBtn) {
-            delBtn.addEventListener('click', () => {
-                canvasElements = canvasElements.filter(e => e !== el);
-                selectedElement = null;
-                renderCanvas();
-                renderProperties(null);
-            });
+            delBtn.addEventListener('click', deleteSelectedElements);
         }
     }
+
+    function deleteSelectedElements() {
+        if (selectedElements.length === 0) return;
+
+        // Confirmation for multiple items
+        if (selectedElements.length > 1) {
+            if (!confirm(`Are you sure you want to delete ${selectedElements.length} items?`)) {
+                return;
+            }
+        }
+
+        canvasElements = canvasElements.filter(e => !selectedElements.includes(e));
+        selectedElements = [];
+        renderCanvas();
+        renderProperties(null);
+    }
+
+    // --- Keyboard Interaction ---
+    document.addEventListener('keydown', (e) => {
+        // Only Delete key (User explicitly requested "just delete button, no backspace")
+        if (e.key === 'Delete') {
+            // Avoid deleting if user is typing in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            deleteSelectedElements();
+        }
+
+        // Arrow Keys for Nudging
+        if (selectedElements.length > 0 && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            // Prevent scrolling
+            e.preventDefault();
+
+            // Delta: 1px normal, 10px with Shift
+            const delta = e.shiftKey ? 10 : 1;
+
+            selectedElements.forEach(el => {
+                let dx = 0; let dy = 0;
+                if (e.key === 'ArrowLeft') dx = -delta;
+                if (e.key === 'ArrowRight') dx = delta;
+                if (e.key === 'ArrowUp') dy = -delta;
+                if (e.key === 'ArrowDown') dy = delta;
+
+                el.x += dx;
+                el.y += dy;
+
+                // Update DOM directly for performance
+                const div = document.getElementById(el.id);
+                if (div) {
+                    div.style.left = el.x + 'px';
+                    div.style.top = el.y + 'px';
+                }
+            });
+        }
+    });
 
     async function updateEquipSelect(el) {
         const equipSelect = propertiesPanel.querySelector('[data-prop="equipSelect"]');
@@ -502,8 +765,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const sys = pageSysInput.value.trim();
         const title = pageTitleInput.value.trim();
 
-        // 1. Generate HTML Content
-        const htmlContent = generateHTML(loc, sys, title);
+        // 1. Generate HTML Content (Updated with zoom parameters)
+        const htmlContent = generateHTML(loc, sys, title, canvasWidth, canvasHeight, currentBackground);
 
         try {
             const res = await fetch('/api/dev/mimic', {
@@ -525,6 +788,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Also update title in mimic_titles.json if title provided
                 if (title) {
                     await saveTitle(filename, title);
+
+                    // Sync to Navigation Data
+                    if (navData && navData.locations) {
+                        let found = false;
+                        navData.locations.forEach(l => {
+                            if (found) return;
+                            l.systems.forEach(s => {
+                                if (found) return;
+                                const page = s.pages.find(p => p.file === filename);
+                                if (page) {
+                                    page.title = title;
+                                    found = true;
+                                }
+                            });
+                        });
+
+                        if (found) {
+                            await fetch('/api/dev/navigation', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(navData)
+                            });
+                        }
+                    }
                 }
             } else {
                 alert("Failed to save mimic.");
@@ -619,25 +906,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function generateHTML(loc, sys, title) {
+
+    function generateHTML(loc, sys, title, width = 1200, height = 800, backgroundImage = null) {
+        // Use global state for width/height/background if available, or defaults
+        const w = (typeof canvasWidth !== 'undefined') ? canvasWidth : width;
+        const h = (typeof canvasHeight !== 'undefined') ? canvasHeight : height;
+        const bg = (typeof currentBackground !== 'undefined') ? currentBackground : backgroundImage;
+
         // Construct the full HTML for the mimic page
         let elementsHTML = '';
-        const initTasks = [];
 
         // Group elements by type for config generation
         const pumps = [];
         const pits = [];
         const ai_textb = [];
+        const tfans = [];
         const selectors = [];
 
         const usedIds = new Set();
 
         canvasElements.forEach((el, index) => {
             if (el.type === 'symbol') {
-                // Generate container
-
-                const type = el.props.symbol; // e.g. pump, pit
-                let domId = el.props.id || `${type}${index + 1}`; // e.g. pump1
+                const type = el.props.symbol;
+                let domId = el.props.id || `${type}${index + 1}`;
 
                 // Ensure uniqueness
                 let originalId = domId;
@@ -648,23 +939,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 usedIds.add(domId);
 
+                // Loc/Sys overrides
+                const sLoc = el.props.location || '';
+                const sSys = el.props.system || '';
+
                 // Add to config arrays
-                if (type === 'pump') pumps.push({ domId, equip: el.props.equip });
-                else if (type === 'pit') pits.push({ domId, equip: el.props.equip });
-                else if (type === 'ai_textb') ai_textb.push({ domId, equip: el.props.equip });
+                if (type === 'pump') pumps.push({ domId, equip: el.props.equip, loc: sLoc, sys: sSys });
+                else if (type === 'pit') pits.push({ domId, equip: el.props.equip, loc: sLoc, sys: sSys });
+                else if (type === 'ai_textb') ai_textb.push({ domId, equip: el.props.equip, loc: sLoc, sys: sSys });
+                else if (type === 'tfan') tfans.push({ domId, equip: el.props.equip, loc: sLoc, sys: sSys });
                 else if (type.includes('selector')) {
-                    // Infer type from tag. If tag contains 'Mode', it's mode. Else remote.
-                    // Also check if the symbol name itself implies mode (e.g. from drag tool)
                     const isMode = (el.props.tag && el.props.tag.includes('Mode')) || (el.props.symbol === 'selector-mode');
-                    selectors.push({ domId, equip: el.props.equip, type: isMode ? 'mode' : 'remote' });
+                    selectors.push({ domId, equip: el.props.equip, type: isMode ? 'mode' : 'remote', loc: sLoc, sys: sSys });
                 }
 
-                // For selector, we need to know if it's mode or remote. 
-                // In the editor, we might need a property for this. 
-                // For now, let's default or try to infer.
-
                 elementsHTML += `
-    <div style="position: absolute; left: ${el.x}px; top: ${el.y}px; text-align: center;" data-equipment="${el.props.equip}">
+    <div style="position: absolute; left: ${el.x}px; top: ${el.y}px; text-align: center;" data-equipment="${el.props.equip}" data-location="${sLoc}" data-system="${sSys}">
         <div id="${domId}" class="${type.includes('selector') ? 'selector' : type}-container"></div>
     </div>
 `;
@@ -687,16 +977,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // Determine if we need zoom
+        const hasBackground = bg && bg.trim().length > 0;
+
         // Generate Script Content
         const scriptContent = `
   const LOC = "${loc}";
   const SYS = "${sys}";
 
   const config = {
-    pits: ${JSON.stringify(pits.map(p => ({ id: p.domId, equipment: p.equip })))},
-    pumps: ${JSON.stringify(pumps.map(p => ({ id: p.domId, equipment: p.equip })))},
-    ai_textb: ${JSON.stringify(ai_textb.map(p => ({ id: p.domId, equipment: p.equip })))},
-    selectors: ${JSON.stringify(selectors.map(s => ({ id: s.domId, equipment: s.equip, type: s.type })))}
+    pits: ${JSON.stringify(pits.map(p => ({ id: p.domId, equipment: p.equip, loc: p.loc, sys: p.sys })))},
+    pumps: ${JSON.stringify(pumps.map(p => ({ id: p.domId, equipment: p.equip, loc: p.loc, sys: p.sys })))},
+    ai_textb: ${JSON.stringify(ai_textb.map(p => ({ id: p.domId, equipment: p.equip, loc: p.loc, sys: p.sys })))},
+    tfans: ${JSON.stringify(tfans.map(p => ({ id: p.domId, equipment: p.equip, loc: p.loc, sys: p.sys })))},
+    selectors: ${JSON.stringify(selectors.map(s => ({ id: s.domId, equipment: s.equip, type: s.type, loc: s.loc, sys: s.sys })))}
   };
 
   window.SCADA = window.parent.SCADA;
@@ -707,138 +1001,143 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!Core.Highlight) return;
     const mapId = id => document.getElementById(id);
     
-    // Auto-generated highlight registration based on config
-    // (Simplified for brevity, matching original pattern)
-    ${pits.map(p => `if(mapId('${p.domId}')) Core.Highlight.register('${loc}-${sys}-${p.equip}', mapId('${p.domId}'));`).join('\n    ')}
-    ${pumps.map(p => `if(mapId('${p.domId}')) Core.Highlight.register('${loc}-${sys}-${p.equip}', mapId('${p.domId}'));`).join('\n    ')}
-    ${ai_textb.map(p => `if(mapId('${p.domId}')) Core.Highlight.register('${loc}-${sys}-${p.equip}', mapId('${p.domId}'));`).join('\n    ')}
-    ${selectors.map(s => `if(mapId('${s.domId}')) Core.Highlight.register('${loc}-${sys}-${s.equipment}', mapId('${s.domId}'));`).join('\n    ')}
+    ${pits.map(p => `if(mapId('${p.domId}')) Core.Highlight.register('${p.loc || loc}-${p.sys || sys}-${p.equip}', mapId('${p.domId}'));`).join('\n    ')}
+    ${pumps.map(p => `if(mapId('${p.domId}')) Core.Highlight.register('${p.loc || loc}-${p.sys || sys}-${p.equip}', mapId('${p.domId}'));`).join('\n    ')}
+    ${ai_textb.map(p => `if(mapId('${p.domId}')) Core.Highlight.register('${p.loc || loc}-${p.sys || sys}-${p.equip}', mapId('${p.domId}'));`).join('\n    ')}
+    ${tfans.map(p => `if(mapId('${p.domId}')) Core.Highlight.register('${p.loc || loc}-${p.sys || sys}-${p.equip}', mapId('${p.domId}'));`).join('\n    ')}
+    ${selectors.map(s => `if(mapId('${s.domId}')) Core.Highlight.register('${s.loc || loc}-${s.sys || sys}-${s.equipment}', mapId('${s.domId}'));`).join('\n    ')}
     
     Core.Highlight.equipIfPending();
   }
 
   function safeInit() {
     const checkExist = () => {
-      // Check if first element of each type exists if configured
       const ready = 
         (!config.pumps.length || document.getElementById("${pumps[0]?.domId}")) &&
         (!config.pits.length || document.getElementById("${pits[0]?.domId}")) &&
         (!config.ai_textb.length || document.getElementById("${ai_textb[0]?.domId}")) &&
+        (!config.tfans.length || document.getElementById("${tfans[0]?.domId}")) &&
         (!config.selectors.length || document.getElementById("${selectors[0]?.domId}"));
         
-      if (ready) { 
-        initSymbols(); 
-      } else { 
-        setTimeout(checkExist, 50); 
-      }
+      if (ready) { initSymbols(); } else { setTimeout(checkExist, 50); }
     };
     checkExist();
   }
 
   if (document.readyState === "complete") { safeInit(); } else { window.addEventListener("load", safeInit); }
 
-  // Refresh Function (Generic)
-  function refresh${sys}(pumps, pits, aiSymbols, selectorSymbols, PanelMode, PanelRemote, data, alarms) {
+  function refresh${sys}(pumps, pits, aiSymbols, tfanSymbols, selectorSymbols, PanelMode, PanelRemote, data, alarms) {
     if (!data || !alarms) return;
     try {
-      // Pits
-      config.pits.forEach((pitId, i) => {
+      // console.log("Refresh ${sys} Triggered", data.points.length, "points");
+      config.pits.forEach((pConf, i) => {
         if (pits[i]) {
-          const cls = pits[i].getVisualClass(data, alarms, LOC);
+          const symLoc = pConf.loc || LOC;
+          const cls = pits[i].getVisualClass(data, alarms, symLoc);
           pits[i].update(cls.pct, cls.visualClass);
           pits[i].showOverride(cls.override);
         }
       });
-
-      // Pumps
-      pumps.forEach(pump => {
-        if (pump) {
-          const cls = pump.getVisualClass(data, alarms, LOC);
-          pump.update(cls.visualClass);
-          pump.showOverride((cls.run?.mo_i) || (cls.trip?.mo_i));
+      config.pumps.forEach((pConf, i) => {
+        if (pumps[i]) {
+          const symLoc = pConf.loc || LOC;
+          const cls = pumps[i].getVisualClass(data, alarms, symLoc);
+          pumps[i].update(cls.visualClass);
+          pumps[i].showOverride((cls.run?.mo_i) || (cls.trip?.mo_i));
         }
       });
-
-      // AI
-      config.ai_textb?.forEach((aiId, i) => {
+      config.ai_textb?.forEach((pConf, i) => {
         if (aiSymbols[i]) {
-          const cls = aiSymbols[i].getVisualClass(data, alarms, LOC);
+          const symLoc = pConf.loc || LOC;
+          const cls = aiSymbols[i].getVisualClass(data, alarms, symLoc);
           if (cls.value !== null) {
             aiSymbols[i].update(cls.value, cls.limits, cls.decimals, cls.flash);
             aiSymbols[i].showOverride(cls.override);
           }
         }
       });
-
-      // Selectors
-      config.selectors.forEach((sel, i) => {
+      config.tfans?.forEach((pConf, i) => {
+        if (tfanSymbols[i]) {
+          const symLoc = pConf.loc || LOC;
+          const cls = tfanSymbols[i].getVisualClass(data, alarms, symLoc);
+          tfanSymbols[i].update(cls.visualClass);
+          tfanSymbols[i].showOverride((cls.run?.mo_i) || (cls.trip?.mo_i) || (cls.mode?.mo_i) || (cls.dir?.mo_i));
+        }
+      });
+      config.selectors?.forEach((sConf, i) => {
           if (selectorSymbols[i]) {
-              const tagSuffix = sel.type === 'mode' ? 'Panel.Mode' : 'Panel.LocalRemote';
-              const cls = selectorSymbols[i].getVisualClass(data, LOC, tagSuffix);
+              const tagSuffix = sConf.type === 'mode' ? 'Panel.Mode' : 'Panel.LocalRemote';
+              const symLoc = sConf.loc || LOC;
+              const cls = selectorSymbols[i].getVisualClass(data, symLoc, tagSuffix);
               if (cls.state) selectorSymbols[i].update(cls.state);
               selectorSymbols[i].showOverride(cls.override);
           }
       });
-
-    } catch (err) {
-      console.error("${sys} mimic refresh failed:", err);
-    }
+    } catch (err) { console.error("Error in refresh${sys}:", err); }
   }
 
   function initSymbols() {
     const initTasks = [];
 
-    // Pumps
-    ${pumps.map((p, i) => `
+    ${pumps.map(p => `
     initTasks.push(Symbols.Pump.init('${p.domId}', {
-        equipKey: '${loc}-${sys}-${p.equip || "000"}',
-        faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SUP", equipId: "${p.equip ? p.equip.slice(-3) : '000'}" }),
-        loc: LOC,
+        equipKey: '${p.loc || loc}-${p.sys || sys}-${p.equip || "000"}',
+        faceplate: Core.Naming.buildFullName({ loc: "${p.loc || loc}", sys: "${p.sys || sys}", equipType: "SUP", equipId: "${p.equip ? p.equip.slice(-3) : '000'}" }),
+        loc: "${p.loc || loc}",
         noAutoRefresh: true,
         doc: document
     }));`).join('')}
 
-    // Pits
-    ${pits.map((p, i) => `
+    ${pits.map(p => `
     initTasks.push(Symbols.Pit.init('${p.domId}', {
-        equipKey: '${loc}-${sys}-${p.equip || "000"}',
-        faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SPT", equipId: "${p.equip ? p.equip.slice(-3) : '000'}" }),
-        loc: LOC,
+        equipKey: '${p.loc || loc}-${p.sys || sys}-${p.equip || "000"}',
+        faceplate: Core.Naming.buildFullName({ loc: "${p.loc || loc}", sys: "${p.sys || sys}", equipType: "SPT", equipId: "${p.equip ? p.equip.slice(-3) : '000'}" }),
+        loc: "${p.loc || loc}",
         noAutoRefresh: true,
         doc: document
     }));`).join('')}
 
-    // AI
     const aiSymbols = [];
     ${ai_textb.map((p, i) => `
     initTasks.push(
         Symbols.AI_TEXTB.init('${p.domId}', {
-          loc: LOC, sys: SYS, equipId: "${p.equip ? p.equip.slice(-3) : '000'}", equipType: "FLO", unit: "L/h",
+          loc: "${p.loc || loc}", sys: "${p.sys || sys}", equipId: "${p.equip ? p.equip.slice(-3) : '000'}", equipType: "FLO", unit: "L/h",
           noAutoRefresh: true,
           doc: document
         }).then(api => { aiSymbols[${i}] = api; return api; })
     );`).join('')}
 
-    // Selectors
+    const tfanSymbols = [];
+    ${tfans.map((p, i) => `
+    initTasks.push(
+        Symbols.TFan.init('${p.domId}', {
+          equipKey: '${p.loc || loc}-${p.sys || sys}-${p.equip || "000"}',
+          faceplate: Core.Naming.buildFullName({ loc: "${p.loc || loc}", sys: "${p.sys || sys}", equipType: "TFAN", equipId: "${p.equip ? p.equip.slice(-3) : '000'}" }),
+          loc: "${p.loc || loc}",
+          noAutoRefresh: true,
+          doc: document
+        }).then(api => { tfanSymbols[${i}] = api; return api; })
+    );`).join('')}
+
     const selectorSymbols = [];
     ${selectors.map((s, i) => `
     initTasks.push(
         Symbols.Selector.init('${s.domId}', {
-          equipKey: '${loc}-${sys}-${s.equip || "000"}',
-          type: "${s.type}", // "mode" or "remote"
+          equipKey: '${s.loc || loc}-${s.sys || sys}-${s.equip || "000"}',
+          type: "${s.type}", 
           tag: "${s.type === 'mode' ? 'Panel.Mode' : 'Panel.LocalRemote'}",
-          faceplate: Core.Naming.buildFullName({ loc: LOC, sys: SYS, equipType: "SPP", equipId: "${s.equip ? s.equip.slice(-3) : '000'}" }),
-          loc: LOC,
+          faceplate: Core.Naming.buildFullName({ loc: "${s.loc || loc}", sys: "${s.sys || sys}", equipType: "SPP", equipId: "${s.equip ? s.equip.slice(-3) : '000'}" }),
+          loc: "${s.loc || loc}",
           doc: document
         }).then(api => { selectorSymbols[${i}] = api; return api; })
     );`).join('')}
 
     Promise.all(initTasks).then(symbols => {
-      // Slice symbols back to arrays
       let offset = 0;
       const pumpSymbols = symbols.slice(offset, offset + ${pumps.length}); offset += ${pumps.length};
       const pitSymbols = symbols.slice(offset, offset + ${pits.length}); offset += ${pits.length};
       const aiSyms = symbols.slice(offset, offset + ${ai_textb.length}); offset += ${ai_textb.length};
+      const tfanSyms = symbols.slice(offset, offset + ${tfans.length}); offset += ${tfans.length};
       const selSyms = symbols.slice(offset, offset + ${selectors.length});
 
       const PanelMode = { getVisualClass: () => ({}), update: () => {}, showOverride: () => {} };
@@ -851,9 +1150,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const sm = SCADA?.Core?.SocketManager;
       if (sm) {
-        const scope = \`system:\${LOC}\`;
-        console.log(\`📡 \${LOC}_\${SYS}: Direct WS subscription to \${scope}\`);
-
         let cachedPoints = {};
         let cachedAlarms = [];
 
@@ -862,32 +1158,45 @@ document.addEventListener('DOMContentLoaded', () => {
             cachedAlarms = Array.isArray(msg.alarms) ? msg.alarms : Object.values(msg.alarms);
             if (msg.type === 'alarms' || msg.type === 'alarm') {
               const data = { points: Object.values(cachedPoints) };
-              refresh${sys}(pumpSymbols, pitSymbols, aiSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
+              refresh${sys}(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
               return;
             }
           }
 
           if (msg.type === 'snapshot' && msg.points) {
-            cachedPoints = msg.points;
+            Object.assign(cachedPoints, msg.points);
             const data = { points: Object.values(cachedPoints) };
-            refresh${sys}(pumpSymbols, pitSymbols, aiSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
+            refresh${sys}(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
           }
           else if (msg.type === 'update' && msg.diffs?.points) {
             if (msg.diffs.points.changed) Object.assign(cachedPoints, msg.diffs.points.changed);
             if (msg.diffs.points.removed) msg.diffs.points.removed.forEach(key => delete cachedPoints[key]);
             
             const data = { points: Object.values(cachedPoints) };
-            refresh${sys}(pumpSymbols, pitSymbols, aiSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
+            refresh${sys}(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
           }
         };
 
-        sm.subscribe(scope, handleSystemUpdate);
+        ${(() => {
+                const locs = new Set([loc]);
+                [...pumps, ...pits, ...ai_textb, ...tfans, ...selectors].forEach(p => { if (p.loc) locs.add(p.loc); });
+                return Array.from(locs).map(l => `sm.subscribe('system:${l}', handleSystemUpdate);`).join('\n        ');
+            })()}
+        
         sm.subscribe('alarms', handleSystemUpdate);
+
+        const scope = \`system:\${LOC}\`;
+        sm.subscribe(scope, handleSystemUpdate); 
 
         window.addEventListener('beforeunload', () => {
           try {
-            sm.unsubscribe(scope, handleSystemUpdate);
+             ${(() => {
+                const locs = new Set([loc]);
+                [...pumps, ...pits, ...ai_textb, ...tfans, ...selectors].forEach(p => { if (p.loc) locs.add(p.loc); });
+                return Array.from(locs).map(l => `sm.unsubscribe('system:${l}', handleSystemUpdate);`).join('\n             ');
+            })()}
             sm.unsubscribe('alarms', handleSystemUpdate);
+            sm.unsubscribe('events', handleSystemUpdate);
           } catch (e) { }
         });
       }
@@ -898,27 +1207,94 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 `;
 
-        // Generate the full document
+        const styleContent = `
+        body { margin: 0; padding: 0; background: #ffffff; overflow: hidden; font-family: 'Segoe UI', sans-serif; user-select: none; }
+        .symbol-container { position: absolute; }
+        .pump-container, .pit-container, .selector-container, .ai_textb-container, .tfan-container { cursor: pointer; }
+        ${hasBackground ? `
+        /* Zoom Container */
+        #zoom-container { position: relative; width: 100vw; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #fff; cursor: default; }
+        .dragging { cursor: grabbing !important; }
+        
+        #mimic-wrapper { 
+            position: absolute; top: 0; left: 0;
+            width: ${w}px; height: ${h}px; 
+            background-color: #fff; box-shadow: none;
+            transform-origin: 0 0; transition: none; 
+            background-image: url('${bg.startsWith('/') ? '' : '/layout/'}${bg}'); 
+            background-size: cover; background-repeat: no-repeat;
+        }
+        
+        #zoom-controls {
+            position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 5px;
+        }
+        .zoom-btn {
+            width: 36px; height: 36px; background: #444; color: #fff; border: 1px solid #666; 
+            border-radius: 4px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;
+        }
+        .zoom-btn:hover { background: #666; }
+        ` : `
+        #mimic-container { position:relative; width:100%; height:100%; }
+        `}
+        `;
+
+        const bodyContent = hasBackground ? `
+<div id="zoom-container">
+    <div id="mimic-wrapper">
+        ${elementsHTML}
+    </div>
+</div>
+<div id="zoom-controls">
+    <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
+    <button class="zoom-btn" onclick="zoomReset()" title="Reset">1:1</button>
+    <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">-</button>
+</div>` : `<div id="mimic-container">${elementsHTML}</div>`;
+
+        const zoomScript = hasBackground ? `
+    // --- Zoom & Pan Logic ---
+    const wrapper = document.getElementById('mimic-wrapper');
+    const container = document.getElementById('zoom-container');
+    let scale = 1; let panX = 0; let panY = 0;
+    
+    function centerView() {
+        if (!container || !wrapper) return;
+        const cw = container.clientWidth; const ch = container.clientHeight;
+        const ww = ${w}; const wh = ${h};
+        panX = (cw - ww * scale) / 2; panY = (ch - wh * scale) / 2;
+        updateTransform();
+    }
+    window.onload = function() { centerView(); };
+    function updateTransform() { if (wrapper) wrapper.style.transform = \`translate(\${panX}px, \${panY}px) scale(\${scale})\`; }
+    window.zoomIn = function() { const cx = container.clientWidth / 2; const cy = container.clientHeight / 2; zoomToPoint(1.2, cx, cy); };
+    window.zoomOut = function() { const cx = container.clientWidth / 2; const cy = container.clientHeight / 2; zoomToPoint(1/1.2, cx, cy); };
+    window.zoomReset = function() { scale = 1; centerView(); };
+    function zoomToPoint(factor, cx, cy) {
+        const newScale = scale * factor;
+        if (newScale < 0.1 || newScale > 10) return;
+        const worldX = (cx - panX) / scale; const worldY = (cy - panY) / scale;
+        panX = cx - worldX * newScale; panY = cy - worldY * newScale;
+        scale = newScale; updateTransform();
+    }
+    if (container) {
+        container.addEventListener('wheel', (e) => { e.preventDefault(); zoomToPoint(e.deltaY < 0 ? 1.05 : 0.95, e.clientX, e.clientY); }, { passive: false });
+        let isDragging = false; let lastX = 0; let lastY = 0;
+        container.addEventListener('mousedown', (e) => { if (e.button === 1) { isDragging = true; container.classList.add('dragging'); lastX = e.clientX; lastY = e.clientY; e.preventDefault(); } });
+        window.addEventListener('mousemove', (e) => { if (isDragging) { const dx = e.clientX - lastX; const dy = e.clientY - lastY; panX += dx; panY += dy; lastX = e.clientX; lastY = e.clientY; updateTransform(); } });
+        window.addEventListener('mouseup', () => { isDragging = false; container.classList.remove('dragging'); });
+    }
+` : '';
+
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>${title}</title>
-    <style>
-        body { margin: 0; padding: 0; background: #ffffff; overflow: hidden; }
-        .symbol-container { position: absolute; }
-        /* Add symbol specific container styles if needed */
-        .pump-container, .pit-container, .selector-container, .ai_textb-container { cursor: pointer; }
-    </style>
+    <style>${styleContent}</style>
 </head>
 <body>
-    <div id="mimic-container" style="position:relative; width:100%; height:100%;">
-        ${elementsHTML}
-    </div>
-
-    <script>
-        ${scriptContent}
-    </script>
+    ${bodyContent}
+    <script>${scriptContent}${zoomScript}</script>
 </body>
 </html>`;
     }
@@ -928,597 +1304,783 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (event) => {
-            const content = event.target.result;
-            parseAndLoadMimic(content, file.name);
+        reader.onload = (ev) => {
+            const content = ev.target.result;
+            // Extract filename from input (just basename)
+            const filename = file.name;
+            currentFilename = filename;
+            parseAndLoadMimic(filename, content);
         };
         reader.readAsText(file);
     }
 
-    function parseAndLoadMimic(html, filename = null) {
+    function parseAndLoadMimic(filename, content) {
+        // Parse the HTML content to extract elements
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(content, 'text/html');
+
+        // Extract LOC/SYS from filename or content
+        let loc = '', sys = '';
+        const nameMatch = filename.match(/^([a-zA-Z0-9]+)_([a-zA-Z0-9]+)/);
+        if (nameMatch) {
+            loc = nameMatch[1];
+            sys = nameMatch[2];
+        }
+
+        pageLocInput.value = loc;
+        pageSysInput.value = sys;
+
+        const titleTag = doc.querySelector('title');
+        if (titleTag) pageTitleInput.value = titleTag.innerText;
+
         // Reset
         canvasElements = [];
-        if (filename) currentFilename = filename;
-        updateEditorState();
+        selectedElement = null;
 
-        // Create a temp DOM to parse
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
+        // Extract Zoom Logic / Global Page Settings
+        // width/height from #mimic-wrapper if present
+        // Check inline styles or css
+        // We'll search the full content for the CSS block we generate
+        const wrapperMatch = content.match(/#mimic-wrapper\s*{([^}]+)}/);
+        if (wrapperMatch) {
+            const css = wrapperMatch[1];
+            const wMatch = css.match(/width:\s*(\d+)px/);
+            const hMatch = css.match(/height:\s*(\d+)px/);
+            const bgMatch = css.match(/background-image:\s*url\(['"]?([^'"]+)['"]?\)/);
 
-        // Extract Title
-        const title = doc.querySelector('title')?.innerText || '';
-        pageTitleInput.value = title;
+            if (wMatch) canvasWidth = parseInt(wMatch[1]);
+            if (hMatch) canvasHeight = parseInt(hMatch[1]);
+            if (bgMatch) {
+                let bg = bgMatch[1];
+                if (bg.startsWith('/layout/')) bg = bg.replace('/layout/', '');
+                // Also remove quotes if they persist? regex matching ([^'"]+) usually handles it
+                currentBackground = bg;
+            } else {
+                currentBackground = null;
+            }
+        } else {
+            // Defaults if not found
+            currentBackground = null;
+            canvasWidth = 1200;
+            canvasHeight = 800;
+        }
 
-        // Extract Metadata from Script
-        const scriptContent = doc.querySelector('script')?.innerText || '';
-        const locMatch = scriptContent.match(/const LOC = "([^"]+)";/);
-        const sysMatch = scriptContent.match(/const SYS = "([^"]+)";/);
+        // Parse Elements
+        // Check for mimic-wrapper first
+        let container = doc.getElementById('mimic-wrapper');
+        if (!container) container = doc.getElementById('mimic-container');
+        if (!container) container = doc.body; // Fallback
 
-        if (locMatch && locMatch[1]) pageLocInput.value = locMatch[1];
-        if (sysMatch && sysMatch[1]) pageSysInput.value = sysMatch[1];
+        // Find all symbol-like divs
+        // Our generator struct: <div style="left... data-equip..."> <div id class="...-container">
+        // So we look for the OUTER divs that have style.left/top
+        const divs = container.querySelectorAll('div[data-equipment]');
 
-        // Extract Elements
+        divs.forEach(div => {
+            const x = parseInt(div.style.left);
+            const y = parseInt(div.style.top);
+            const equip = div.dataset.equipment || '';
+            const sLoc = div.dataset.location || '';
+            const sSys = div.dataset.system || '';
 
-        // 1. Static Text
-        // Improved selector: look for divs with font-size style, excluding symbol containers
-        doc.querySelectorAll('div[style*="font-size"]').forEach(div => {
-            // Skip if it's inside a symbol container or is a symbol container
-            if (div.closest('.symbol-container') || div.closest('[data-equipment]')) return;
+            let type = 'unknown';
+            let props = {
+                id: '',
+                equip: equip,
+                location: sLoc,
+                system: sSys,
+                symbol: ''
+            };
 
-            const style = div.style;
-            canvasElements.push({
-                id: 'el_' + Date.now() + Math.random(),
-                type: 'static-text',
-                x: parseFloat(style.left),
-                y: parseFloat(style.top),
-                props: {
-                    text: div.innerText.trim(),
-                    fontSize: parseFloat(style.fontSize) || 12,
-                    color: style.color || '#000000',
-                    fontWeight: style.fontWeight || 'normal'
-                }
-            });
-        });
-
-        // 2. Static Lines and Arrows
-        // Look for divs with background-color but NO text and NO symbol class
-        doc.querySelectorAll('div[style*="background-color"]').forEach(div => {
-            // Skip if it's inside a symbol container or is a symbol container
-            if (div.closest('.symbol-container') || div.closest('[data-equipment]')) return;
-            if (div.innerText.trim().length > 0) return; // Skip text divs that might have bg
-
-            const style = div.style;
-            const width = parseFloat(style.width);
-            const height = parseFloat(style.height);
-
-            // Skip if invalid dimensions (e.g. 100% width containers)
-            if (!width || !height) return;
-
-            const rotMatch = style.transform.match(/rotate\(([-\d.]+)deg\)/);
-            const rotation = rotMatch ? parseFloat(rotMatch[1]) : 0;
-
-            // Check for arrow head
-            const hasArrowHead = div.querySelector('div[style*="border-left"]');
-            const type = hasArrowHead ? 'static-arrow' : 'static-line';
-
-            canvasElements.push({
-                id: 'el_' + Date.now() + Math.random(),
-                type: type,
-                x: parseFloat(style.left),
-                y: parseFloat(style.top),
-                props: {
-                    width: width,
-                    height: height,
-                    backgroundColor: style.backgroundColor,
-                    rotation: rotation
-                }
-            });
-        });
-
-        // 3. Symbols (Builder Format)
-        doc.querySelectorAll('.symbol-container').forEach(div => {
-            const style = div.style;
-            const type = div.dataset.type;
-            const id = div.id;
-
-            canvasElements.push({
-                id: id || 'el_' + Date.now() + Math.random(),
-                type: 'symbol',
-                x: parseFloat(style.left),
-                y: parseFloat(style.top),
-                props: {
-                    symbol: type,
-                    id: id,
-                    system: '',
-                    equip: '',
-                    tag: ''
-                }
-            });
-        });
-
-        // 4. Symbols (Runtime Format - e.g. NBT_TRA_1.html)
-        // Look for divs with data-equipment
-        doc.querySelectorAll('div[data-equipment]').forEach(div => {
-            const style = div.style;
-            const equip = div.dataset.equipment;
-
-            // Find inner symbol div
-            const inner = div.firstElementChild;
+            const inner = div.querySelector('div[id]');
             if (inner) {
-                // Infer type from class (e.g. pump-container -> pump)
-                let type = 'unknown';
-                if (inner.classList.contains('pump-container')) type = 'pump';
-                else if (inner.classList.contains('pit-container')) type = 'pit';
-                else if (inner.classList.contains('selector-container')) type = 'selector';
-                else if (inner.classList.contains('ai_textb-container')) type = 'ai_textb';
+                props.id = inner.id;
 
-                // For selectors, try to infer if it's mode or remote
-                let tag = equip;
-                if (type === 'selector') {
-                    // Try to find this ID in the script config
-                    const id = inner.id;
-                    const scriptContent = doc.querySelector('script')?.innerText || '';
-
-                    // Robustly find the selector config in the script
-                    // Look for: selectors: [ ... { id: "selector1", ... type: "mode" } ... ]
-                    // We can try to extract the selectors array string
-                    const selectorsMatch = scriptContent.match(/selectors:\s*(\[[\s\S]*?\])/);
-                    if (selectorsMatch) {
-                        try {
-                            // This might be tricky if it's not valid JSON (keys not quoted)
-                            // But our generator produces valid JSON for the array content: JSON.stringify(...)
-                            const selectorsConfig = JSON.parse(selectorsMatch[1]);
-                            const selConfig = selectorsConfig.find(s => s.id === id);
-
-                            if (selConfig) {
-                                if (selConfig.type === 'mode') {
-                                    tag = 'Panel.Mode';
-                                    // IMPORTANT: Set symbol to selector-mode so editor recognizes it
-                                    // But wait, the loop below sets props.symbol = type (which is 'selector')
-                                    // We need to override it later or change 'type' variable here?
-                                    // Changing 'type' variable here affects the container class check which is already done.
-                                    // We should set a flag or modify the pushed object.
-                                } else {
-                                    tag = 'Panel.LocalRemote';
-                                }
-                            }
-                        } catch (e) {
-                            console.warn("Failed to parse selectors config:", e);
-                        }
-                    }
+                if (inner.classList.contains('pump-container')) { type = 'symbol'; props.symbol = 'pump'; }
+                else if (inner.classList.contains('pit-container')) { type = 'symbol'; props.symbol = 'pit'; }
+                else if (inner.classList.contains('ai_textb-container')) { type = 'symbol'; props.symbol = 'ai_textb'; }
+                else if (inner.classList.contains('tfan-container')) { type = 'symbol'; props.symbol = 'tfan'; }
+                else if (inner.classList.contains('selector-container')) {
+                    type = 'symbol';
+                    // Determine sub-type
+                    // We need to check if we can infer mode vs remote
+                    // In generated HTML, we lose the specific tag "Panel.Mode" unless we parse the SCRIPT
+                    // But we can check if it says 'mode' in DOM structure? No.
+                    // But we can check the dataset? No.
+                    // Wait, we pushed objects to 'selectors' config with type 'mode'/'remote'.
+                    // We can regex the script to find the selector config!
+                    props.symbol = 'selector';
                 }
+            }
 
-
-                canvasElements.push({
-                    id: inner.id || 'el_' + Date.now() + Math.random(),
-                    type: 'symbol',
-                    x: parseFloat(style.left),
-                    y: parseFloat(style.top),
-                    props: {
-                        symbol: (type === 'selector' && tag.includes('Mode')) ? 'selector-mode' :
-                            (type === 'selector' && tag.includes('Remote')) ? 'selector-remote' : type,
-                        id: inner.id,
-                        system: '',
-                        equip: equip,
-                        tag: tag
-                    }
-                });
+            if (type !== 'unknown') {
+                const el = {
+                    id: props.id || 'el_' + Date.now() + Math.random(),
+                    type: type,
+                    x: x,
+                    y: y,
+                    props: props
+                };
+                canvasElements.push(el);
             }
         });
+
+        // Parse Text
+        const texts = container.querySelectorAll('div[style*="font-size"]');
+        texts.forEach(div => {
+            const x = parseInt(div.style.left);
+            const y = parseInt(div.style.top);
+            const text = div.innerText.trim();
+            const fontSize = parseInt(div.style.fontSize);
+            const color = div.style.color;
+            const fontWeight = div.style.fontWeight;
+
+            canvasElements.push({
+                id: 'txt_' + Date.now() + Math.random(),
+                type: 'static-text',
+                x, y,
+                props: { text, fontSize, color, fontWeight }
+            });
+        });
+
+        // Parse Lines
+        const lines = container.querySelectorAll('div[style*="transform:rotate"]');
+        lines.forEach(div => {
+            // Differentiate line vs arrow
+            // arrow has inner triangle div
+            const isArrow = div.querySelector('div[style*="border-left"]');
+
+            const x = parseInt(div.style.left);
+            const y = parseInt(div.style.top);
+            const w = parseInt(div.style.width);
+            const h = parseInt(div.style.height);
+            const bg = div.style.backgroundColor;
+            const rotMatch = div.style.transform.match(/rotate\(([-\d.]+)deg\)/);
+            const rot = rotMatch ? parseFloat(rotMatch[1]) : 0;
+
+            canvasElements.push({
+                id: 'line_' + Date.now() + Math.random(),
+                type: isArrow ? 'static-arrow' : 'static-line',
+                x, y,
+                props: { width: w, height: h, backgroundColor: bg, rotation: rot }
+            });
+        });
+
+        // Recover Selector Types from Script
+        // Look for `selectors: [...]` in script
+        const scriptMatch = content.match(/selectors:\s*(\[[^\]]+\])/);
+        if (scriptMatch) {
+            try {
+                // It's JSON-like but might have non-strict quotes?
+                // The generator uses JSON.stringify, so it should be valid JSON.
+                const selConfig = JSON.parse(scriptMatch[1]);
+                selConfig.forEach(s => {
+                    const el = canvasElements.find(e => e.props.id === s.id);
+                    if (el && el.props.symbol === 'selector') {
+                        if (s.type === 'mode') {
+                            el.props.symbol = 'selector-mode';
+                            el.props.tag = 'Panel.Mode';
+                        } else {
+                            el.props.symbol = 'selector-remote';
+                            el.props.tag = 'Panel.LocalRemote';
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error("Failed to parse selector config:", e);
+            }
+        }
 
         renderCanvas();
-        alert("Loaded mimic (Note: Some property bindings may be lost in reverse-parsing)");
+        updateEditorState();
+        updateBackgroundUI(); // <--- Added this call
+        alert("Mimic loaded!");
     }
 
-    // --- Navigation Manager Logic ---
-    function initNavigation() {
-        const navModal = document.getElementById('navModal');
-        const navBtn = document.getElementById('navBtn');
-        const closeBtn = document.getElementById('navCloseBtn');
-        const saveBtn = document.getElementById('navSaveBtn');
-
-        const listLoc = document.getElementById('navListLoc');
-        const listSys = document.getElementById('navListSys');
-        const listPage = document.getElementById('navListPage');
-
-        const addLocBtn = document.getElementById('navAddLocBtn');
-        const addSysBtn = document.getElementById('navAddSysBtn');
-        const addPageBtn = document.getElementById('navAddPageBtn');
-
-        // Open Modal
-        navBtn.addEventListener('click', async () => {
-            try {
-                if (navData.locations.length === 0) await loadNavigationData();
-                renderLocations();
-                navModal.style.display = 'block';
-            } catch (e) {
-                console.error("Failed to load navigation:", e);
-                alert("Failed to load navigation config.");
-            }
-        });
-
-        // Close Modal
-        closeBtn.addEventListener('click', () => {
-            navModal.style.display = 'none';
-        });
-
-        window.addEventListener('click', (e) => {
-            if (e.target === navModal) {
-                navModal.style.display = 'none';
-            }
-        });
-
-        // Save Changes
-        saveBtn.addEventListener('click', async () => {
-            try {
-                const res = await fetch('/api/dev/navigation', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(navData)
-                });
-                if (res.ok) {
-                    alert("Navigation saved successfully!");
-                    navModal.style.display = 'none';
-                } else {
-                    throw new Error("Save failed");
-                }
-            } catch (e) {
-                console.error("Failed to save navigation:", e);
-                alert("Failed to save navigation.");
-            }
-        });
-
-        // Render Locations
-        function renderLocations() {
-            listLoc.innerHTML = '';
-            listSys.innerHTML = '';
-            listPage.innerHTML = '';
-            addSysBtn.disabled = true;
-            addPageBtn.disabled = true;
-            selectedLoc = null;
-            selectedSys = null;
-
-            navData.locations.forEach((loc, idx) => {
-                const li = document.createElement('li');
-                li.className = 'nav-item';
-                li.innerHTML = `
-                    <div class="nav-item-content">
-                        <div class="nav-item-title">${loc.id}</div>
-                        <div class="nav-item-subtitle">${loc.name}</div>
-                    </div>
-                    <span class="delete-icon" title="Delete Location">&times;</span>
-                `;
-                li.onclick = (e) => {
-                    if (e.target.classList.contains('delete-icon')) {
-                        if (confirm(`Delete location ${loc.id}?`)) {
-                            navData.locations.splice(idx, 1);
-                            renderLocations();
-                        }
-                        return;
-                    }
-                    document.querySelectorAll('#navListLoc .nav-item').forEach(el => el.classList.remove('selected'));
-                    li.classList.add('selected');
-                    selectedLoc = loc;
-                    renderSystems();
-                };
-                listLoc.appendChild(li);
-            });
+    function updateEditorState() {
+        if (currentFilename) {
+            const nameDisplay = document.getElementById('currentFilenameDisplay');
+            if (nameDisplay) nameDisplay.innerText = currentFilename;
+            loadBtn.innerText = "Load Mimic (" + currentFilename + ")";
         }
-
-        // Render Systems
-        function renderSystems() {
-            listSys.innerHTML = '';
-            listPage.innerHTML = '';
-            addPageBtn.disabled = true;
-            selectedSys = null;
-
-            if (!selectedLoc) {
-                addSysBtn.disabled = true;
-                return;
-            }
-            addSysBtn.disabled = false;
-
-            if (!selectedLoc.systems) selectedLoc.systems = [];
-
-            selectedLoc.systems.forEach((sys, idx) => {
-                const li = document.createElement('li');
-                li.className = 'nav-item';
-                li.innerHTML = `
-                    <div class="nav-item-content">
-                        <div class="nav-item-title">${sys.id}</div>
-                        <div class="nav-item-subtitle">${sys.name}</div>
-                    </div>
-                    <span class="delete-icon" title="Delete System">&times;</span>
-                `;
-                li.onclick = (e) => {
-                    if (e.target.classList.contains('delete-icon')) {
-                        if (confirm(`Delete system ${sys.id}?`)) {
-                            selectedLoc.systems.splice(idx, 1);
-                            renderSystems();
-                        }
-                        return;
-                    }
-                    document.querySelectorAll('#navListSys .nav-item').forEach(el => el.classList.remove('selected'));
-                    li.classList.add('selected');
-                    selectedSys = sys;
-                    renderPages();
-                };
-                listSys.appendChild(li);
-            });
-        }
-
-        // Render Pages
-        function renderPages() {
-            listPage.innerHTML = '';
-            if (!selectedSys) {
-                addPageBtn.disabled = true;
-                return;
-            }
-            addPageBtn.disabled = false;
-
-            if (!selectedSys.pages) selectedSys.pages = [];
-
-            selectedSys.pages.forEach((page, idx) => {
-                const li = document.createElement('li');
-                li.className = 'nav-item';
-                li.innerHTML = `
-                    <div class="nav-item-content">
-                        <div class="nav-item-title">${page.title}</div>
-                        <div class="nav-item-subtitle">${page.file}</div>
-                    </div>
-                    <span class="delete-icon" title="Delete Page">&times;</span>
-                `;
-                li.onclick = (e) => {
-                    if (e.target.classList.contains('delete-icon')) {
-                        if (confirm(`Delete page ${page.title}?`)) {
-                            selectedSys.pages.splice(idx, 1);
-                            renderPages();
-                        }
-                        return;
-                    }
-                    // Edit Page
-                    const newTitle = prompt("Edit Page Title:", page.title);
-                    if (newTitle !== null) {
-                        page.title = newTitle;
-                        renderPages();
-                    }
-                };
-                listPage.appendChild(li);
-            });
-        }
-
-        addLocBtn.addEventListener('click', () => {
-            const id = prompt("Enter Location ID (e.g. NBT):");
-            if (!id) return;
-            const name = prompt("Enter Location Name (e.g. Northbound Tunnel):");
-            navData.locations.push({ id, name: name || id, systems: [] });
-            renderLocations();
-        });
-
-        addSysBtn.addEventListener('click', () => {
-            const id = prompt("Enter System ID (e.g. TRA):");
-            if (!id) return;
-            const name = prompt("Enter System Name (e.g. Drainage):");
-            selectedLoc.systems.push({ id, name: name || id, pages: [] });
-            renderSystems();
-        });
-
-        addPageBtn.addEventListener('click', async () => {
-            const loc = selectedLoc.id;
-            const sys = selectedSys.id;
-
-            // 1. Calculate next number for auto-generation (for default or "Create New")
-            let nextNum = 1;
-            const regex = new RegExp(`^${loc}_${sys}_(\\d+)\\.html$`);
-            selectedSys.pages.forEach(p => {
-                const match = p.file.match(regex);
-                if (match) {
-                    const num = parseInt(match[1]);
-                    if (num >= nextNum) nextNum = num + 1;
-                }
-            });
-            const autoFilename = `${loc}_${sys}_${nextNum}.html`;
-
-            // 2. Open File Selection Modal
-            const fileModal = document.getElementById('fileSelectModal');
-            const fileList = document.getElementById('fileList');
-            const confirmBtn = document.getElementById('fileSelectConfirmBtn');
-            const createNewBtn = document.getElementById('fileCreateNewBtn');
-            const closeBtn = document.getElementById('fileSelectCloseBtn');
-
-            let selectedFile = null;
-            let titleMap = {}; // Store titles
-
-            confirmBtn.disabled = true;
-            fileList.innerHTML = '<div style="padding:10px; color:#666;">Loading files...</div>';
-            fileModal.style.display = 'block';
-
-            // Fetch files AND titles
-            try {
-                const [filesRes, titlesRes] = await Promise.all([
-                    fetch('/api/dev/mimic_files'),
-                    fetch('/api/dev/titles')
-                ]);
-
-                if (filesRes.ok && titlesRes.ok) {
-                    const files = await filesRes.json();
-                    titleMap = await titlesRes.json();
-
-                    const relevant = files.filter(f => f.startsWith(`${loc}_${sys}`));
-
-                    fileList.innerHTML = '';
-                    if (relevant.length === 0) {
-                        fileList.innerHTML = '<div style="padding:10px; color:#666;">No existing files found for this system.</div>';
-                    } else {
-                        relevant.forEach(f => {
-                            const div = document.createElement('div');
-                            div.className = 'file-item';
-
-                            // Strip extension for title lookup
-                            const key = f.replace('.html', '');
-                            const title = titleMap[key] ? ` <span style="color:#888; font-size:0.9em;">(${titleMap[key]})</span>` : '';
-
-                            div.innerHTML = `<div class="file-item-name">${f}${title}</div>`;
-
-                            div.onclick = () => {
-                                document.querySelectorAll('.file-item').forEach(el => el.classList.remove('selected'));
-                                div.classList.add('selected');
-                                selectedFile = f;
-                                confirmBtn.disabled = false;
-                            };
-                            fileList.appendChild(div);
-                        });
-                    }
-                } else {
-                    fileList.innerHTML = '<div style="padding:10px; color:red;">Failed to load data.</div>';
-                }
-            } catch (e) {
-                console.error("Failed to fetch data:", e);
-                fileList.innerHTML = '<div style="padding:10px; color:red;">Error loading data.</div>';
-            }
-
-            // Handlers
-            const closeModal = () => {
-                fileModal.style.display = 'none';
-            };
-
-            closeBtn.onclick = closeModal;
-
-            createNewBtn.onclick = () => {
-                closeModal();
-                addPage(autoFilename);
-            };
-
-            confirmBtn.onclick = () => {
-                if (selectedFile) {
-                    closeModal();
-                    addPage(selectedFile);
-                }
-            };
-
-            async function addPage(filename) {
-                // Pre-fill title if available
-                const key = filename.replace('.html', '');
-                const defaultTitle = titleMap[key] || "New Page";
-
-                // If this is a new file (auto-generated name), prompt for title
-                // If it's an existing file (selectedFile), we might not need to prompt, or maybe we do to confirm?
-                // The user flow: "Select Existing" -> "Confirm" -> Load it.
-                // "Create New" -> Prompt Title -> Create empty.
-
-                if (filename === selectedFile) {
-                    // Loading existing file
-                    try {
-                        const res = await fetch(`/systems/${filename}`);
-                        if (res.ok) {
-                            const content = await res.text();
-                            parseAndLoadMimic(content, filename);
-                            // Update inputs
-                            pageLocInput.value = loc;
-                            pageSysInput.value = sys;
-                            pageTitleInput.value = defaultTitle;
-
-                            // Add to navigation list if not already present
-                            if (selectedSys && selectedSys.pages) {
-                                const existingPage = selectedSys.pages.find(p => p.file === filename);
-                                if (!existingPage) {
-                                    selectedSys.pages.push({ file: filename, title: defaultTitle });
-                                    renderPages();
-                                }
-                            }
-                        } else {
-                            alert("Failed to load file content.");
-                        }
-                    } catch (e) {
-                        console.error("Error loading file:", e);
-                        alert("Error loading file.");
-                    }
-                } else {
-                    // Creating new file
-                    const title = prompt("Enter Page Title:", defaultTitle);
-                    if (title === null) return;
-
-                    // Add to list (visual only until saved)
-                    selectedSys.pages.push({ file: filename, title });
-                    renderPages();
-
-                    // Reset canvas for new page
-                    canvasElements = [];
-                    currentFilename = null;
-                    updateEditorState();
-                    renderCanvas();
-                    renderProperties(null);
-
-                    pageLocInput.value = loc;
-                    pageSysInput.value = sys;
-                    pageTitleInput.value = title;
-                }
-            }
-        });
     }
 
-    async function loadNavigationData() {
+    loadBtn.addEventListener('click', () => {
+        loadFileInput.click();
+    });
+
+    loadFileInput.addEventListener('change', handleFileLoad);
+    generateBtn.addEventListener('click', handleSaveClick);
+
+
+    // --- Navigation & Layouts ---
+    async function loadNavigation() {
         try {
             const res = await fetch('/api/dev/navigation');
             navData = await res.json();
-            if (!navData.locations) navData.locations = [];
         } catch (e) {
             console.error("Failed to load navigation:", e);
         }
     }
 
-    async function init() {
-        await loadSymbols();
-        await loadSystems();
-        await loadNavigationData(); // Ensure navData is available
-        setupDragAndDrop();
-        setupCanvasInteractions();
-        initNavigation();
+    // --- Background Control ---
+    function setupBackgroundControls() {
+        // Elements
+        const bgSelectBtn = document.getElementById('bgSelectBtn');
+        const bgFitBtn = document.getElementById('bgFitBtn');
+        const bgClearBtn = document.getElementById('bgClearBtn');
+        const canvasWInput = document.getElementById('canvasWidth');
+        const canvasHInput = document.getElementById('canvasHeight');
 
-        generateBtn.addEventListener('click', handleSaveClick);
-        loadBtn.addEventListener('click', () => loadFileInput.click());
-        loadFileInput.addEventListener('change', handleFileLoad);
+        // Modal Elements
+        const layoutModal = document.getElementById('layoutModal');
+        const layoutList = document.getElementById('layoutList');
+        const layoutConfirmBtn = document.getElementById('layoutConfirmBtn');
+        const layoutCloseBtn = document.getElementById('layoutCloseBtn');
 
-        // Save Modal Listeners
-        const saveModal = document.getElementById('saveModal');
-        const saveCloseBtn = document.getElementById('saveCloseBtn');
-        const saveConfirmBtn = document.getElementById('saveConfirmBtn');
-        const saveFilenameInput = document.getElementById('saveFilenameInput');
+        let selectedLayoutFile = null;
 
-        if (saveCloseBtn) saveCloseBtn.onclick = () => saveModal.style.display = 'none';
+        // Open Modal
+        if (bgSelectBtn) {
+            bgSelectBtn.addEventListener('click', async () => {
+                if (layoutModal) layoutModal.style.display = 'block';
+                if (layoutList) layoutList.innerHTML = '<div class="loading">Loading layouts...</div>';
+                if (layoutConfirmBtn) layoutConfirmBtn.disabled = true;
+                selectedLayoutFile = null;
 
-        if (saveConfirmBtn) {
-            saveConfirmBtn.onclick = () => {
-                const name = saveFilenameInput.value.trim();
-                if (name) {
-                    saveModal.style.display = 'none';
-                    performSave(name);
+                try {
+                    const res = await fetch('/api/dev/layouts');
+                    const files = await res.json();
+
+                    if (layoutList) {
+                        layoutList.innerHTML = '';
+                        if (files.length === 0) {
+                            layoutList.innerHTML = '<div style="padding:10px;">No layout files found in /layout directory.</div>';
+                        } else {
+                            files.forEach(f => {
+                                const div = document.createElement('div');
+                                div.className = 'file-item';
+                                div.innerText = f;
+                                div.addEventListener('click', () => {
+                                    layoutList.querySelectorAll('.file-item').forEach(i => i.classList.remove('selected'));
+                                    div.classList.add('selected');
+                                    selectedLayoutFile = f;
+                                    if (layoutConfirmBtn) layoutConfirmBtn.disabled = false;
+                                });
+                                layoutList.appendChild(div);
+                            });
+                        }
+                    }
+                } catch (e) {
+                    if (layoutList) layoutList.innerHTML = '<div class="error">Error loading layouts.</div>';
+                    console.error(e);
                 }
+            });
+        }
+
+        if (layoutCloseBtn) {
+            layoutCloseBtn.addEventListener('click', () => {
+                layoutModal.style.display = 'none';
+            });
+        }
+
+        if (layoutConfirmBtn) {
+            layoutConfirmBtn.addEventListener('click', () => {
+                if (selectedLayoutFile) {
+                    currentBackground = selectedLayoutFile;
+                    updateBackgroundUI();
+                    layoutModal.style.display = 'none';
+                }
+            });
+        }
+
+        if (bgFitBtn) {
+            bgFitBtn.addEventListener('click', () => {
+                if (!currentBackground) return;
+                const img = new Image();
+                img.onload = () => {
+                    canvasWidth = img.width;
+                    canvasHeight = img.height;
+                    if (canvasWInput) canvasWInput.value = canvasWidth;
+                    if (canvasHInput) canvasHInput.value = canvasHeight;
+                    updateBackgroundUI();
+                };
+                img.src = currentBackground.startsWith('/') ? currentBackground : '/layout/' + currentBackground;
+            });
+        }
+
+        if (bgClearBtn) {
+            bgClearBtn.addEventListener('click', () => {
+                currentBackground = null;
+                updateBackgroundUI();
+            });
+        }
+
+        // Dimensions Inputs
+        if (canvasWInput) {
+            canvasWInput.addEventListener('change', () => {
+                canvasWidth = parseInt(canvasWInput.value) || 1200;
+                updateBackgroundUI();
+            });
+            canvasWInput.value = canvasWidth;
+        }
+        if (canvasHInput) {
+            canvasHInput.addEventListener('change', () => {
+                canvasHeight = parseInt(canvasHInput.value) || 800;
+                updateBackgroundUI();
+            });
+            canvasHInput.value = canvasHeight;
+        }
+
+        updateBackgroundUI();
+    }
+
+    function updateBackgroundUI() {
+        const bgPreview = document.getElementById('bgPreview');
+        const bgClearBtn = document.getElementById('bgClearBtn');
+        const canvas = document.getElementById('mimicCanvas');
+
+        // Update Canvas Style
+        if (canvas) {
+            canvas.style.width = canvasWidth + 'px';
+            canvas.style.height = canvasHeight + 'px';
+
+            const gridPattern = `
+                linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px)
+            `;
+            const gridSize = '20px 20px';
+
+            if (currentBackground) {
+                if (bgPreview) bgPreview.innerText = currentBackground;
+                if (bgClearBtn) bgClearBtn.style.display = 'block';
+
+                const url = currentBackground.startsWith('/') ? currentBackground : '/layout/' + currentBackground;
+
+                // Layer grid ON TOP of background image
+                canvas.style.backgroundImage = `${gridPattern}, url('${url}')`;
+
+                // Grid repeats, image covers
+                canvas.style.backgroundSize = `${gridSize}, ${gridSize}, cover`;
+                canvas.style.backgroundRepeat = 'repeat, repeat, no-repeat';
+                canvas.style.backgroundPosition = '0 0, 0 0, 0 0';
+
+            } else {
+                if (bgPreview) bgPreview.innerText = "No background set.";
+                if (bgClearBtn) bgClearBtn.style.display = 'none';
+
+                // Just the grid
+                canvas.style.backgroundImage = gridPattern;
+                canvas.style.backgroundSize = gridSize;
+                canvas.style.backgroundRepeat = 'repeat';
+            }
+        }
+    }
+
+    function setupSaveModalInteractions() {
+        const modal = document.getElementById('saveModal');
+        const confirmBtn = document.getElementById('saveConfirmBtn');
+        const closeBtn = document.getElementById('saveCloseBtn');
+        const nameInput = document.getElementById('saveFilenameInput');
+
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', () => {
+                const filename = nameInput.value.trim();
+                if (!filename) {
+                    alert("Please enter a filename.");
+                    return;
+                }
+                if (!filename.toLowerCase().endsWith('.html')) {
+                    alert("Filename must end with .html");
+                    return;
+                }
+
+                performSave(filename).then(() => {
+                    modal.style.display = 'none';
+                });
+            });
+        }
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+        }
+    }
+
+    function setupNavigationManager() {
+        const modal = document.getElementById('navModal');
+        const btn = document.getElementById('navBtn');
+        const closeBtn = document.getElementById('navCloseBtn');
+        const saveBtn = document.getElementById('navSaveBtn');
+
+        // Lists
+        const listLoc = document.getElementById('navListLoc');
+        const listSys = document.getElementById('navListSys');
+        const listPage = document.getElementById('navListPage');
+
+        // Add Buttons
+        const addLocBtn = document.getElementById('navAddLocBtn');
+        const addSysBtn = document.getElementById('navAddSysBtn');
+        const addPageBtn = document.getElementById('navAddPageBtn');
+
+        let tempNavData = JSON.parse(JSON.stringify(navData)); // Local copy for editing
+        let activeLoc = null;
+        let activeSys = null;
+        let activePage = null; // Track selected page
+
+        const navRemovePageBtn = document.getElementById('navRemovePageBtn');
+        if (navRemovePageBtn) {
+            navRemovePageBtn.addEventListener('click', () => {
+                if (!activeSys || !activePage) return;
+
+                if (confirm(`Are you sure you want to remove page "${activePage.title}" from this system?`)) {
+                    // Remove from array
+                    activeSys.pages = activeSys.pages.filter(p => p.file !== activePage.file);
+                    activePage = null;
+                    renderNavManager();
+                }
+            });
+        }
+
+        if (btn) {
+            btn.addEventListener('click', async () => {
+                await loadNavigation(); // Fetch latest from server
+                tempNavData = JSON.parse(JSON.stringify(navData));
+                activeLoc = null;
+                activeSys = null;
+                activePage = null;
+                renderNavManager();
+                modal.style.display = 'block';
+            });
+        }
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+        }
+
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                // Save to server
+                try {
+                    const res = await fetch('/api/dev/navigation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(tempNavData)
+                    });
+                    if (res.ok) {
+                        alert("Navigation saved!");
+                        navData = JSON.parse(JSON.stringify(tempNavData));
+                        modal.style.display = 'none';
+                    } else {
+                        alert("Failed to save navigation.");
+                    }
+                } catch (e) { console.error(e); alert("Error saving."); }
+            });
+        }
+
+        function renderNavManager() {
+            renderLocList();
+            renderSysList();
+            renderPageList();
+        }
+
+        function renderLocList() {
+            if (!listLoc) return;
+            listLoc.innerHTML = '';
+
+            const navRemoveLocBtn = document.getElementById('navRemoveLocBtn');
+            if (navRemoveLocBtn) navRemoveLocBtn.disabled = !activeLoc;
+
+            (tempNavData.locations || []).forEach(loc => {
+                const li = document.createElement('li');
+                li.className = 'nav-item';
+                li.innerHTML = `<span class="nav-item-title">${loc.name}</span> <span class="nav-item-subtitle">(${loc.id})</span>`;
+                if (activeLoc && activeLoc.id === loc.id) li.classList.add('selected');
+                li.addEventListener('click', () => {
+                    activeLoc = loc;
+                    activeSys = null;
+                    activePage = null; // Reset page selection
+                    renderNavManager();
+                });
+                listLoc.appendChild(li);
+            });
+        }
+
+        function renderSysList() {
+            if (!listSys) return;
+            listSys.innerHTML = '';
+            addSysBtn.disabled = !activeLoc;
+
+            const navRemoveSysBtn = document.getElementById('navRemoveSysBtn');
+            if (navRemoveSysBtn) navRemoveSysBtn.disabled = !activeSys;
+
+            if (!activeLoc) return;
+
+            (activeLoc.systems || []).forEach(sys => {
+                const li = document.createElement('li');
+                li.className = 'nav-item';
+                li.innerHTML = `<span class="nav-item-title">${sys.name}</span> <span class="nav-item-subtitle">(${sys.id})</span>`;
+                if (activeSys && activeSys.id === sys.id) li.classList.add('selected');
+                li.addEventListener('click', () => {
+                    activeSys = sys;
+                    activePage = null; // Reset page selection
+                    renderPageList();
+                    // Re-highlight sys
+                    const all = listSys.querySelectorAll('li');
+                    all.forEach(x => x.classList.remove('selected'));
+                    li.classList.add('selected');
+
+                    // Enable remove button
+                    const btn = document.getElementById('navRemoveSysBtn');
+                    if (btn) btn.disabled = false;
+                });
+                listSys.appendChild(li);
+            });
+        }
+
+        function renderPageList() {
+            if (!listPage) return;
+            listPage.innerHTML = '';
+
+            addPageBtn.disabled = !activeSys;
+            const navRemovePageBtn = document.getElementById('navRemovePageBtn');
+            if (navRemovePageBtn) {
+                navRemovePageBtn.disabled = !activePage;
+            }
+
+            if (!activeSys) return;
+
+            (activeSys.pages || []).forEach(pg => {
+                const li = document.createElement('li');
+                li.className = 'nav-item';
+                li.innerHTML = `<span class="nav-item-title">${pg.title}</span> <span class="nav-item-subtitle">(${pg.file})</span>`;
+
+                if (activePage && activePage.file === pg.file) {
+                    li.classList.add('selected');
+                }
+
+                li.addEventListener('click', () => {
+                    activePage = pg;
+                    renderPageList();
+                });
+
+                listPage.appendChild(li);
+            });
+        }
+
+        // Helper to show a custom prompt since native prompt might be blocked/ignored
+        function showCustomPrompt(message, callback) {
+            let overlay = document.getElementById('customPromptOverlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'customPromptOverlay';
+                overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;justify-content:center;align-items:center;';
+                overlay.innerHTML = `
+                    <div style="background:white;padding:20px;border-radius:5px;box-shadow:0 0 10px rgba(0,0,0,0.5);width:300px;">
+                        <h3 id="customPromptMsg" style="margin-top:0;"></h3>
+                        <input type="text" id="customPromptInput" style="width:100%;padding:5px;margin:10px 0;box-sizing:border-box;">
+                        <div style="display:flex;justify-content:flex-end;gap:10px;">
+                            <button id="customPromptCancel">Cancel</button>
+                            <button id="customPromptOk" class="primary-btn">OK</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+            }
+
+            const msgEl = overlay.querySelector('#customPromptMsg');
+            const inputEl = overlay.querySelector('#customPromptInput');
+            const cancelBtn = overlay.querySelector('#customPromptCancel');
+            const okBtn = overlay.querySelector('#customPromptOk');
+
+            msgEl.textContent = message;
+            inputEl.value = '';
+            overlay.style.display = 'flex';
+            inputEl.focus();
+
+            const cleanup = () => {
+                cancelBtn.onclick = null;
+                okBtn.onclick = null;
+                overlay.style.display = 'none';
+            };
+
+            cancelBtn.onclick = () => {
+                cleanup();
+                callback(null);
+            };
+
+            okBtn.onclick = () => {
+                const val = inputEl.value.trim();
+                cleanup();
+                callback(val);
             };
         }
 
-        // Initial title load if inputs have values
-        updateTitle();
-        updateEditorState();
-    }
+        function showFileSelectionDialog(files, titles, callback) {
+            let overlay = document.getElementById('fileSelectionOverlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'fileSelectionOverlay';
+                overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;justify-content:center;align-items:center;';
+                overlay.innerHTML = `
+                    <div style="background:white;padding:20px;border-radius:5px;box-shadow:0 0 10px rgba(0,0,0,0.5);width:400px;max-height:80vh;display:flex;flex-direction:column;">
+                        <h3 style="margin-top:0;">Select Page</h3>
+                        <div id="fileSelectionList" style="flex:1;overflow-y:auto;border:1px solid #ccc;margin:10px 0;"></div>
+                        <div style="display:flex;justify-content:flex-end;gap:10px;">
+                            <button id="fileSelectionCancel">Cancel</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+            }
 
-    function updateEditorState() {
-        const display = document.getElementById('currentFileDisplay');
-        const btn = document.getElementById('generateBtn');
+            const listEl = overlay.querySelector('#fileSelectionList');
+            const cancelBtn = overlay.querySelector('#fileSelectionCancel');
 
-        if (currentFilename) {
-            display.style.display = 'block';
-            display.innerText = `Editing: ${currentFilename}`;
-            btn.innerText = "Save Changes";
-            btn.classList.remove('primary-btn');
-            btn.style.backgroundColor = '#28a745'; // Green for save
-        } else {
-            display.style.display = 'none';
-            btn.innerText = "Generate";
-            btn.classList.add('primary-btn');
-            btn.style.backgroundColor = ''; // Reset
+            listEl.innerHTML = '';
+            files.forEach(f => {
+                const key = f.replace('.html', '');
+                const title = titles[key] || titles[f] || f;
+                const div = document.createElement('div');
+                div.style.cssText = 'padding:8px;cursor:pointer;border-bottom:1px solid #eee;';
+                div.innerHTML = `<b>${title}</b><br><small style="color:gray">${f}</small>`;
+                div.onmouseover = () => div.style.background = '#f0f0f0';
+                div.onmouseout = () => div.style.background = 'white';
+                div.onclick = () => {
+                    cleanup();
+                    callback(f);
+                };
+                listEl.appendChild(div);
+            });
+
+            overlay.style.display = 'flex';
+
+            const cleanup = () => {
+                cancelBtn.onclick = null;
+                overlay.style.display = 'none';
+            };
+
+            cancelBtn.onclick = () => {
+                cleanup();
+                callback(null);
+            };
         }
+
+        // Add Handlers
+        if (addLocBtn) {
+            addLocBtn.addEventListener('click', () => {
+                console.log("Add Location Clicked");
+                showCustomPrompt("Location ID (e.g. NBT):", (id) => {
+                    if (!id) return;
+                    showCustomPrompt("Location Name:", (name) => {
+                        if (!name) return;
+                        if (!tempNavData.locations) tempNavData.locations = [];
+                        tempNavData.locations.push({ id, name, systems: [] });
+                        renderNavManager();
+                    });
+                });
+            });
+        }
+
+        if (addSysBtn) {
+            addSysBtn.addEventListener('click', () => {
+                console.log("Add System Clicked");
+                if (!activeLoc) return;
+                showCustomPrompt("System ID (e.g. TRA):", (id) => {
+                    if (!id) return;
+                    showCustomPrompt("System Name:", (name) => {
+                        if (!name) return;
+                        if (!activeLoc.systems) activeLoc.systems = [];
+                        activeLoc.systems.push({ id, name, pages: [] });
+                        renderNavManager();
+                    });
+                });
+            });
+        }
+
+        if (addPageBtn) {
+            addPageBtn.addEventListener('click', async () => {
+                if (!activeLoc || !activeSys) return;
+
+                try {
+                    const [filesRes, titlesRes] = await Promise.all([
+                        fetch('/api/dev/mimic_files'),
+                        fetch('/api/dev/titles')
+                    ]);
+                    const files = await filesRes.json();
+                    const titles = await titlesRes.json();
+
+                    // Filter: must start with LOC_SYS_ (case insensitive)
+                    const prefix = `${activeLoc.id}_${activeSys.id}_`.toUpperCase();
+                    const relevantFiles = files.filter(f => f.toUpperCase().startsWith(prefix));
+
+                    if (relevantFiles.length === 0) {
+                        alert(`No files found for this system (${prefix}*). Please create a file first.`);
+                        return;
+                    }
+
+                    showFileSelectionDialog(relevantFiles, titles, (selectedFile) => {
+                        if (!selectedFile) return;
+
+                        // Auto-resolve title
+                        const key = selectedFile.replace('.html', '');
+                        const title = titles[key] || titles[selectedFile] || selectedFile;
+
+                        if (!activeSys.pages) activeSys.pages = [];
+                        activeSys.pages.push({ file: selectedFile, title });
+                        renderNavManager();
+                    });
+
+                } catch (err) {
+                    console.error("Error fetching files:", err);
+                    alert("Failed to load file list.");
+                }
+            });
+        }
+
+        const navRemoveLocBtn = document.getElementById('navRemoveLocBtn');
+        if (navRemoveLocBtn) {
+            navRemoveLocBtn.addEventListener('click', () => {
+                if (!activeLoc) return;
+
+                if (confirm(`Are you sure you want to remove Location "${activeLoc.name}" (${activeLoc.id}) and all its systems?`)) {
+                    tempNavData.locations = tempNavData.locations.filter(l => l.id !== activeLoc.id);
+                    activeLoc = null;
+                    activeSys = null;
+                    activePage = null;
+                    renderNavManager();
+                }
+            });
+        }
+
+        const navRemoveSysBtn = document.getElementById('navRemoveSysBtn');
+        if (navRemoveSysBtn) {
+            navRemoveSysBtn.addEventListener('click', () => {
+                if (!activeLoc || !activeSys) return;
+
+                if (confirm(`Are you sure you want to remove System "${activeSys.name}" (${activeSys.id}) and all its pages?`)) {
+                    activeLoc.systems = activeLoc.systems.filter(s => s.id !== activeSys.id);
+                    activeSys = null;
+                    activePage = null;
+                    renderNavManager();
+                }
+            });
+        }
+
     }
 
-    init();
+    loadNavigation();
+    setupBackgroundControls();
+    setupSaveModalInteractions();
+    setupNavigationManager();
+
+    // Initial Load
+    loadSymbols();
+    loadSystems();
+    setupDragAndDrop();
+    setupCanvasInteractions();
+    renderCanvas();
 });

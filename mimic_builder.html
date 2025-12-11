@@ -46,6 +46,9 @@
                         <div class="tool-item" draggable="true" data-type="static-arrow">
                             <span class="icon">→</span> Arrow
                         </div>
+                        <div class="tool-item" draggable="true" data-type="static-rect">
+                            <span class="icon">⬜</span> Rectangle
+                        </div>
                     </div>
                 </div>
             </aside>
@@ -77,6 +80,29 @@
                         <label>Page Title</label>
                         <input type="text" id="pageTitle" placeholder="e.g. NBT - Tunnel Sump">
                     </div>
+                    <div class="form-group" style="display: flex; gap: 10px;">
+                        <div>
+                            <label>Width (px)</label>
+                            <input type="number" id="canvasWidth" value="1200">
+                        </div>
+                        <div>
+                            <label>Height (px)</label>
+                            <input type="number" id="canvasHeight" value="800">
+                        </div>
+                    </div>
+                </div>
+                <div class="sidebar-section">
+                    <h3>Background</h3>
+                    <div class="form-group">
+                        <button id="bgSelectBtn" class="secondary-btn" style="width:100%">Set Background Image</button>
+                        <button id="bgFitBtn" class="secondary-btn"
+                            style="width:100%; margin-top:5px; font-size: 11px;">Fit Canvas to Bg</button>
+                        <div id="bgPreview" style="margin-top:10px; font-size:12px; color:#666; word-break:break-all;">
+                            No background set.
+                        </div>
+                        <button id="bgClearBtn" class="delete-btn" style="margin-top:5px; display:none;">Clear
+                            Background</button>
+                    </div>
                 </div>
             </aside>
         </div>
@@ -87,6 +113,12 @@
         <div class="form-group">
             <label>ID</label>
             <input type="text" data-prop="id">
+        </div>
+        <div class="form-group">
+            <label>Location</label>
+            <select data-prop="locationSelect">
+                <option value="">Select Location...</option>
+            </select>
         </div>
         <div class="form-group">
             <label>System</label>
@@ -156,6 +188,32 @@
         </div>
     </template>
 
+    <template id="rect-props-template">
+        <div class="form-group">
+            <label>Width (px)</label>
+            <input type="number" data-prop="width" min="10">
+        </div>
+        <div class="form-group">
+            <label>Height (px)</label>
+            <input type="number" data-prop="height" min="10">
+        </div>
+        <div class="form-group">
+            <label>Fill Color</label>
+            <input type="color" data-prop="backgroundColor" value="#cccccc">
+        </div>
+        <div class="form-group">
+            <label>Border Color</label>
+            <input type="color" data-prop="borderColor" value="#000000">
+        </div>
+        <div class="form-group">
+            <label>Border Width (px)</label>
+            <input type="number" data-prop="borderWidth" min="0" value="1">
+        </div>
+        <div class="form-group" style="margin-top: 20px;">
+            <button class="delete-btn" data-action="delete">Delete Element</button>
+        </div>
+    </template>
+
     <!-- Navigation Manager Modal -->
     <div id="navModal" class="modal" style="display: none;">
         <div class="modal-content">
@@ -168,17 +226,29 @@
                     <div class="nav-col">
                         <h3>Locations</h3>
                         <ul id="navListLoc" class="nav-list"></ul>
-                        <button id="navAddLocBtn" class="add-btn">+ Add Location</button>
+                        <div style="display: flex; gap: 5px;">
+                            <button id="navAddLocBtn" class="add-btn" style="flex: 1;">+ Add</button>
+                            <button id="navRemoveLocBtn" class="add-btn" disabled
+                                style="flex: 1; background-color: #dc3545;">- Remove</button>
+                        </div>
                     </div>
                     <div class="nav-col">
                         <h3>Systems</h3>
                         <ul id="navListSys" class="nav-list"></ul>
-                        <button id="navAddSysBtn" class="add-btn" disabled>+ Add System</button>
+                        <div style="display: flex; gap: 5px;">
+                            <button id="navAddSysBtn" class="add-btn" disabled style="flex: 1;">+ Add</button>
+                            <button id="navRemoveSysBtn" class="add-btn" disabled
+                                style="flex: 1; background-color: #dc3545;">- Remove</button>
+                        </div>
                     </div>
                     <div class="nav-col">
                         <h3>Pages</h3>
                         <ul id="navListPage" class="nav-list"></ul>
-                        <button id="navAddPageBtn" class="add-btn" disabled>+ Add Page</button>
+                        <div style="display: flex; gap: 5px;">
+                            <button id="navAddPageBtn" class="add-btn" disabled style="flex: 1;">+ Add</button>
+                            <button id="navRemovePageBtn" class="add-btn" disabled
+                                style="flex: 1; background-color: #dc3545;">- Remove</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -232,6 +302,29 @@
         </div>
     </div>
 
+    <!-- Layout Selection Modal -->
+    <div id="layoutModal" class="modal" style="display: none;">
+        <div class="modal-content" style="width: 500px;">
+            <div class="modal-header">
+                <h2>Select Layout Background</h2>
+                <span class="close" id="layoutCloseBtn">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Select an architectural background from the layout folder:</p>
+                <div id="layoutList" class="file-list">
+                    <!-- Layout files loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="layoutConfirmBtn" class="primary-btn" disabled>Select Layout</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.SCADA = window.SCADA || { Core: {}, Symbols: {} };
+    </script>
+    <script src="symbols/tfan.js"></script>
     <script src="js/mimic_builder.js"></script>
 </body>
 

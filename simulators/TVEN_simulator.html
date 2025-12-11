@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>TVEN TFAN – Simulator</title>
+    <style>
+        :root {
+            --bg: #0b1220;
+            --panel: #101826;
+            --line: #223;
+            --text: #e5e7eb;
+            --muted: #9aa4b2;
+            --accent: #38bdf8;
+            --warn: #f59e0b;
+            --alarm: #ef4444;
+            --ok: #22c55e;
+            --disabled: #334155;
+        }
+
+        body {
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, Segoe UI, Roboto, Arial;
+            background: var(--bg);
+            color: var(--text)
+        }
+
+        .wrap {
+            max-width: 800px;
+            margin: 24px auto;
+            padding: 0 16px
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            color: var(--accent);
+            font-weight: 700
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            align-items: start
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 14px
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .pill {
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        button {
+            background: #1b2536;
+            border: 1px solid var(--line);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 10px;
+            cursor: pointer
+        }
+
+        button:hover {
+            border-color: #2e3b53
+        }
+
+        button:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+            border-color: var(--disabled)
+        }
+
+        label {
+            font-size: 13px;
+            color: var(--muted);
+            width: 60px;
+            display: inline-block;
+        }
+
+        .led {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 6px;
+            border: 1px solid #0003;
+            vertical-align: middle;
+        }
+
+        .led.ok {
+            background: var(--ok)
+        }
+
+        .led.off {
+            background: #394457
+        }
+
+        .led.warn {
+            background: var(--warn)
+        }
+
+        .led.alarm {
+            background: var(--alarm)
+        }
+
+        .kv {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 10px;
+            font-size: 13px;
+            color: var(--muted)
+        }
+
+        .mono {
+            font-family: ui-monospace, Menlo, Consolas, monospace
+        }
+
+        .small {
+            font-size: 12px;
+            color: var(--muted)
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <h1>TVEN TFAN Simulator (2× TFans)</h1>
+        <div class="row" style="justify-content: flex-end;">
+            <div class="pill small">API: <span id="apiState">…</span></div>
+        </div>
+
+        <div class="grid">
+
+            <!-- TFAN 1 -->
+            <div class="card">
+                <h3>TFAN 001</h3>
+
+                <div class="row">
+                    <label>Mode</label>
+                    <button id="btnMode1">Auto</button>
+                </div>
+
+                <div style="height:10px"></div>
+                <h4>Status</h4>
+                <div class="row">
+                    <span class="led" id="ledRun1"></span> Running
+                    <span class="led" id="ledFwd1"></span> Fwd
+                    <span class="led" id="ledBwd1"></span> Bwd
+                    <span class="led" id="ledTrip1"></span> Trip
+                </div>
+
+                <div style="height:10px"></div>
+                <h4>Local Control</h4>
+                <div class="row">
+                    <button id="btnFwd1">Fwd</button>
+                    <button id="btnBwd1">Bwd</button>
+                    <button id="btnStop1">Stop</button>
+                    <button id="btnTrip1">Trip/Reset</button>
+                </div>
+            </div>
+
+            <!-- TFAN 2 -->
+            <div class="card">
+                <h3>TFAN 002</h3>
+
+                <div class="row">
+                    <label>Mode</label>
+                    <button id="btnMode2">Auto</button>
+                </div>
+
+                <div style="height:10px"></div>
+                <h4>Status</h4>
+                <div class="row">
+                    <span class="led" id="ledRun2"></span> Running
+                    <span class="led" id="ledFwd2"></span> Fwd
+                    <span class="led" id="ledBwd2"></span> Bwd
+                    <span class="led" id="ledTrip2"></span> Trip
+                </div>
+
+                <div style="height:10px"></div>
+                <h4>Local Control</h4>
+                <div class="row">
+                    <button id="btnFwd2">Fwd</button>
+                    <button id="btnBwd2">Bwd</button>
+                    <button id="btnStop2">Stop</button>
+                    <button id="btnTrip2">Trip/Reset</button>
+                </div>
+            </div>
+
+        </div>
+
+        <div style="height:20px"></div>
+        <div class="card">
+            <div class="small mono" id="status">Ready.</div>
+            <div class="small mono" id="error" style="color:#ffdd88"></div>
+        </div>
+    </div>
+
+
+    <script>
+        // ---------- Config ----------
+        const POLL_MS = 500;
+
+        // ---------- Elements ----------
+        const apiState = document.getElementById("apiState");
+        const statusEl = document.getElementById("status");
+        const errorEl = document.getElementById("error");
+
+        // TFAN 1 UI
+        const btnMode1 = document.getElementById("btnMode1");
+        const btnFwd1 = document.getElementById("btnFwd1");
+        const btnBwd1 = document.getElementById("btnBwd1");
+        const btnStop1 = document.getElementById("btnStop1");
+        const btnTrip1 = document.getElementById("btnTrip1");
+        const ledRun1 = document.getElementById("ledRun1");
+        const ledFwd1 = document.getElementById("ledFwd1");
+        const ledBwd1 = document.getElementById("ledBwd1");
+        const ledTrip1 = document.getElementById("ledTrip1");
+
+        // TFAN 2 UI
+        const btnMode2 = document.getElementById("btnMode2");
+        const btnFwd2 = document.getElementById("btnFwd2");
+        const btnBwd2 = document.getElementById("btnBwd2");
+        const btnStop2 = document.getElementById("btnStop2");
+        const btnTrip2 = document.getElementById("btnTrip2");
+        const ledRun2 = document.getElementById("ledRun2");
+        const ledFwd2 = document.getElementById("ledFwd2");
+        const ledBwd2 = document.getElementById("ledBwd2");
+        const ledTrip2 = document.getElementById("ledTrip2");
+
+
+        // ---------- State ----------
+        // Mode: 1=Auto, 0=Manual (Matches PLC Def)
+        // Direction: 0=Fwd, 1=Bwd
+        const fans = {
+            TFAN001: { mode: 1, run: 0, dir: 0, trip: 0 },
+            TFAN002: { mode: 1, run: 0, dir: 0, trip: 0 }
+        };
+
+        // ---------- Helpers ----------
+        function renderStatus(msg) { statusEl.textContent = msg; }
+        function setLed(el, state) { el.className = "led " + (state === 1 ? "ok" : state === 2 ? "warn" : state === 3 ? "alarm" : "off"); }
+
+        async function writeTag(tag, value) {
+            try {
+                const res = await fetch("/api/plc_write", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ tag: "NBT:" + tag, value })
+                });
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                apiState.textContent = "OK";
+            } catch (e) {
+                apiState.textContent = "ERR";
+                errorEl.textContent = `Failed ${tag}: ${e.message}`;
+            }
+        }
+
+        const lastSent = new Map();
+        async function writeTagIfChanged(tag, value) {
+            // Tag here is short name e.g. "TFAN001.RunFb"
+            const fullTag = "NBT:" + tag;
+            if (lastSent.get(fullTag) === value) return;
+            lastSent.set(fullTag, value);
+            await writeTag(tag, value);
+        }
+
+        // ---------- Logic ----------
+        function setFanState(id, run, dir) {
+            if (fans[id].trip) return; // Trip interlock
+            fans[id].run = run;
+            if (dir !== null) fans[id].dir = dir;
+            render();
+        }
+
+        function toggleTrip(id) {
+            fans[id].trip = fans[id].trip ? 0 : 1;
+            if (fans[id].trip) fans[id].run = 0; // Trip stops fan
+            render();
+        }
+
+        function toggleMode(id) {
+            fans[id].mode = fans[id].mode ? 0 : 1;
+            render();
+        }
+
+
+        // ---------- UI Events ----------
+        // TFAN 1
+        btnMode1.onclick = async () => { toggleMode("TFAN001"); await writeTag("TFAN001.Mode", fans.TFAN001.mode); };
+        btnFwd1.onclick = () => setFanState("TFAN001", 1, 0);
+        btnBwd1.onclick = () => setFanState("TFAN001", 1, 1);
+        btnStop1.onclick = () => setFanState("TFAN001", 0, null);
+        btnTrip1.onclick = async () => { toggleTrip("TFAN001"); await writeTag("TFAN001.Trip", fans.TFAN001.trip); };
+
+        // TFAN 2
+        btnMode2.onclick = async () => { toggleMode("TFAN002"); await writeTag("TFAN002.Mode", fans.TFAN002.mode); };
+        btnFwd2.onclick = () => setFanState("TFAN002", 1, 0);
+        btnBwd2.onclick = () => setFanState("TFAN002", 1, 1);
+        btnStop2.onclick = () => setFanState("TFAN002", 0, null);
+        btnTrip2.onclick = async () => { toggleTrip("TFAN002"); await writeTag("TFAN002.Trip", fans.TFAN002.trip); };
+
+
+        // ---------- Poll & Pulse Logic ----------
+        async function poll() {
+            try {
+                const res = await fetch("/api/read_plc");
+                const data = await res.json();
+                const systemPoints = data.points.filter(p => p.loc === "NBT" && p.sys === "TVEN");
+                const map = Object.fromEntries(systemPoints.map(p => [`${p.loc}:${p.tag}`, p.value]));
+
+                // Sync State from PLC (Pulse Logic)
+                ["TFAN001", "TFAN002"].forEach(async (id) => {
+                    const cmdFwd = map[`NBT:${id}.CmdFwd`] | 0;
+                    const cmdBwd = map[`NBT:${id}.CmdBwd`] | 0;
+                    const cmdStop = map[`NBT:${id}.CmdStop`] | 0;
+
+                    // Handle Pulses
+                    if (cmdFwd === 1) {
+                        setFanState(id, 1, 0);
+                        await writeTag(`${id}.CmdFwd`, 0); // Clear Pulse
+                        renderStatus(`${id} FWD Command Received`);
+                    }
+                    if (cmdBwd === 1) {
+                        setFanState(id, 1, 1);
+                        await writeTag(`${id}.CmdBwd`, 0); // Clear Pulse
+                        renderStatus(`${id} BWD Command Received`);
+                    }
+                    if (cmdStop === 1) {
+                        setFanState(id, 0, null);
+                        await writeTag(`${id}.CmdStop`, 0); // Clear Pulse
+                        renderStatus(`${id} STOP Command Received`);
+                    }
+
+                    // Sync Mode/Trip if changed externally (though we usually drive it)
+                    // But we treat Simulator as 'Field', so we are the source of truth for RunFb/Trip
+                    // We read Mode from SCADA only if we want to confirm, but usually Mode is a switch on Panel (Field)
+                    // or a virtual logic. Here we let the Simulator UI drive Mode.
+
+                    // Write Feedbacks
+                    await writeTagIfChanged(`${id}.RunFb`, fans[id].run);
+                    await writeTagIfChanged(`${id}.Direction`, fans[id].dir);
+                    // Trip and Mode are written immediately on click, but could ensure consistency here
+                });
+
+            } catch (e) {
+                apiState.textContent = "ERR";
+                errorEl.textContent = `Poll failed: ${e.message}`;
+            }
+        }
+
+
+        // ---------- Render ----------
+        function render() {
+            // TFAN 1
+            btnMode1.textContent = fans.TFAN001.mode ? "Auto" : "Manual";
+            setLed(ledRun1, fans.TFAN001.run);
+            setLed(ledFwd1, fans.TFAN001.run && fans.TFAN001.dir === 0 ? 1 : 0);
+            setLed(ledBwd1, fans.TFAN001.run && fans.TFAN001.dir === 1 ? 1 : 0);
+            setLed(ledTrip1, fans.TFAN001.trip ? 3 : 0);
+
+            // TFAN 2
+            btnMode2.textContent = fans.TFAN002.mode ? "Auto" : "Manual";
+            setLed(ledRun2, fans.TFAN002.run);
+            setLed(ledFwd2, fans.TFAN002.run && fans.TFAN002.dir === 0 ? 1 : 0);
+            setLed(ledBwd2, fans.TFAN002.run && fans.TFAN002.dir === 1 ? 1 : 0);
+            setLed(ledTrip2, fans.TFAN002.trip ? 3 : 0);
+        }
+
+        // ---------- Init ----------
+        setInterval(poll, POLL_MS);
+        render();
+
+    </script>
+</body>
+
+</html>

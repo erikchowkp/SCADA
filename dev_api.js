@@ -326,4 +326,22 @@ router.post("/navigation", (req, res) => {
     }
 });
 
+
+// GET /api/dev/layouts - List all layout background files
+router.get("/layouts", (req, res) => {
+    try {
+        const layoutDir = path.join(__dirname, "layout");
+        if (!fs.existsSync(layoutDir)) {
+            return res.json([]);
+        }
+        const files = fs.readdirSync(layoutDir)
+            .filter(f => f.match(/\.(svg|png|jpg|jpeg)$/i));
+        res.json(files);
+    } catch (e) {
+        console.error("Error listing layouts:", e);
+        res.status(500).json({ error: "Failed to list layouts" });
+    }
+});
+
 module.exports = router;
+

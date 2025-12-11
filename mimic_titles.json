@@ -7,6 +7,14 @@
   "VENT": "VENT – Tunnel Ventilation Fans",
   "FIRE": "FIRE – Fire Alarm & Detection System",
   "NBT_TRA_2": "jj",
-  "NBT_TRA_3": "sss",
-  "NBT_TRA_4": "jj"
+  "NBT_TRA_3": "lo",
+  "NBT_TRA_4": "jj",
+  "NBT_TRA_5": "logg",
+  "STSB_TRA_2": "B2",
+  "STSB_Layout_1": "BGG665",
+  "NBT_Layout_1": "test",
+  "NBT_TVEN_1": "TVEN schem",
+  "STSB_TVEN_1": "TVC",
+  "SBT_TVEN_1": "TV",
+  "STSB_TVEN_2": "TVB"
 }

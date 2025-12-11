@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>lo</title>
+    <title>test</title>
     <style>
         body { margin: 0; padding: 0; background: #ffffff; overflow: hidden; font-family: 'Segoe UI', sans-serif; user-select: none; }
         .symbol-container { position: absolute; }
@@ -14,7 +14,7 @@
 </head>
 <body>
     <div id="mimic-container">
-    <div style="position: absolute; left: 436.9999694824219px; top: 201.99999237060547px; text-align: center;" data-equipment="SUP001" data-location="NBT" data-system="TRA">
+    <div style="position: absolute; left: 624.9999694824219px; top: 373.99999237060547px; text-align: center;" data-equipment="SUP001" data-location="NBT" data-system="TRA">
         <div id="sym_1" class="pump-container"></div>
     </div>
 </div>
@@ -66,7 +66,6 @@
   function refreshLayout(pumps, pits, aiSymbols, tfanSymbols, selectorSymbols, PanelMode, PanelRemote, data, alarms) {
     if (!data || !alarms) return;
     try {
-      // console.log("Refresh Layout Triggered", data.points.length, "points");
       config.pits.forEach((pConf, i) => {
         if (pits[i]) {
           const symLoc = pConf.loc || LOC;
@@ -110,7 +109,7 @@
               selectorSymbols[i].showOverride(cls.override);
           }
       });
-    } catch (err) { console.error("Error in refreshLayout:", err); }
+    } catch (err) { }
   }
 
   function initSymbols() {

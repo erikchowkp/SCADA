@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>lo</title>
+    <title>logg</title>
     <style>
         body { margin: 0; padding: 0; background: #ffffff; overflow: hidden; font-family: 'Segoe UI', sans-serif; user-select: none; }
         .symbol-container { position: absolute; }
@@ -14,16 +14,20 @@
 </head>
 <body>
     <div id="mimic-container">
-    <div style="position: absolute; left: 436.9999694824219px; top: 201.99999237060547px; text-align: center;" data-equipment="SUP001" data-location="NBT" data-system="TRA">
+    <div style="position: absolute; left: 364.9999694824219px; top: 236.99999237060547px; text-align: center;" data-equipment="SUP001" data-location="NBT" data-system="TRA">
         <div id="sym_1" class="pump-container"></div>
+    </div>
+
+    <div style="position: absolute; left: 467.9999694824219px; top: 174.99999237060547px; text-align: center;" data-equipment="SPT001" data-location="NBT" data-system="TRA">
+        <div id="sym_2" class="pit-container"></div>
     </div>
 </div>
     <script>
   const LOC = "NBT";
-  const SYS = "Layout";
+  const SYS = "TRA";
 
   const config = {
-    pits: [],
+    pits: [{"id":"sym_2","equipment":"SPT001","loc":"NBT","sys":"TRA"}],
     pumps: [{"id":"sym_1","equipment":"SUP001","loc":"NBT","sys":"TRA"}],
     ai_textb: [],
     tfans: [],
@@ -38,7 +42,7 @@
     if (!Core.Highlight) return;
     const mapId = id => document.getElementById(id);
     
-    
+    if(mapId('sym_2')) Core.Highlight.register('NBT-TRA-SPT001', mapId('sym_2'));
     if(mapId('sym_1')) Core.Highlight.register('NBT-TRA-SUP001', mapId('sym_1'));
     
     
@@ -51,7 +55,7 @@
     const checkExist = () => {
       const ready = 
         (!config.pumps.length || document.getElementById("sym_1")) &&
-        (!config.pits.length || document.getElementById("undefined")) &&
+        (!config.pits.length || document.getElementById("sym_2")) &&
         (!config.ai_textb.length || document.getElementById("undefined")) &&
         (!config.tfans.length || document.getElementById("undefined")) &&
         (!config.selectors.length || document.getElementById("undefined"));
@@ -63,10 +67,10 @@
 
   if (document.readyState === "complete") { safeInit(); } else { window.addEventListener("load", safeInit); }
 
-  function refreshLayout(pumps, pits, aiSymbols, tfanSymbols, selectorSymbols, PanelMode, PanelRemote, data, alarms) {
+  function refreshTRA(pumps, pits, aiSymbols, tfanSymbols, selectorSymbols, PanelMode, PanelRemote, data, alarms) {
     if (!data || !alarms) return;
     try {
-      // console.log("Refresh Layout Triggered", data.points.length, "points");
+      // console.log("Refresh TRA Triggered", data.points.length, "points");
       config.pits.forEach((pConf, i) => {
         if (pits[i]) {
           const symLoc = pConf.loc || LOC;
@@ -110,7 +114,7 @@
               selectorSymbols[i].showOverride(cls.override);
           }
       });
-    } catch (err) { console.error("Error in refreshLayout:", err); }
+    } catch (err) { console.error("Error in refreshTRA:", err); }
   }
 
   function initSymbols() {
@@ -126,6 +130,13 @@
     }));
 
     
+    initTasks.push(Symbols.Pit.init('sym_2', {
+        equipKey: 'NBT-TRA-SPT001',
+        faceplate: Core.Naming.buildFullName({ loc: "NBT", sys: "TRA", equipType: "SPT", equipId: "001" }),
+        loc: "NBT",
+        noAutoRefresh: true,
+        doc: document
+    }));
 
     const aiSymbols = [];
     
@@ -139,7 +150,7 @@
     Promise.all(initTasks).then(symbols => {
       let offset = 0;
       const pumpSymbols = symbols.slice(offset, offset + 1); offset += 1;
-      const pitSymbols = symbols.slice(offset, offset + 0); offset += 0;
+      const pitSymbols = symbols.slice(offset, offset + 1); offset += 1;
       const aiSyms = symbols.slice(offset, offset + 0); offset += 0;
       const tfanSyms = symbols.slice(offset, offset + 0); offset += 0;
       const selSyms = symbols.slice(offset, offset + 0);
@@ -166,7 +177,7 @@
             cachedAlarms = Array.isArray(msg.alarms) ? msg.alarms : Object.values(msg.alarms);
             if (msg.type === 'alarms' || msg.type === 'alarm') {
               const data = { points: Object.values(cachedPoints) };
-              refreshLayout(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
+              refreshTRA(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
               return;
             }
           }
@@ -174,14 +185,14 @@
           if (msg.type === 'snapshot' && msg.points) {
             Object.assign(cachedPoints, msg.points);
             const data = { points: Object.values(cachedPoints) };
-            refreshLayout(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
+            refreshTRA(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
           }
           else if (msg.type === 'update' && msg.diffs?.points) {
             if (msg.diffs.points.changed) Object.assign(cachedPoints, msg.diffs.points.changed);
             if (msg.diffs.points.removed) msg.diffs.points.removed.forEach(key => delete cachedPoints[key]);
             
             const data = { points: Object.values(cachedPoints) };
-            refreshLayout(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
+            refreshTRA(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
           }
         };
 

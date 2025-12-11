@@ -2,31 +2,66 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>lo</title>
+    <title>BGG665</title>
     <style>
         body { margin: 0; padding: 0; background: #ffffff; overflow: hidden; font-family: 'Segoe UI', sans-serif; user-select: none; }
         .symbol-container { position: absolute; }
         .pump-container, .pit-container, .selector-container, .ai_textb-container, .tfan-container { cursor: pointer; }
         
-        #mimic-container { position:relative; width:100%; height:100%; }
+        /* Zoom Container */
+        #zoom-container { position: relative; width: 100vw; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #fff; cursor: default; }
+        .dragging { cursor: grabbing !important; }
+        
+        #mimic-wrapper { 
+            position: absolute; top: 0; left: 0;
+            width: 1200px; height: 800px; 
+            background-color: #fff; box-shadow: none;
+            transform-origin: 0 0; transition: none; 
+            background-image: url('/layout/STSB_B2.svg'); 
+            background-size: cover; background-repeat: no-repeat;
+        }
+        
+        #zoom-controls {
+            position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 5px;
+        }
+        .zoom-btn {
+            width: 36px; height: 36px; background: #444; color: #fff; border: 1px solid #666; 
+            border-radius: 4px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;
+        }
+        .zoom-btn:hover { background: #666; }
         
         </style>
 </head>
 <body>
-    <div id="mimic-container">
-    <div style="position: absolute; left: 436.9999694824219px; top: 201.99999237060547px; text-align: center;" data-equipment="SUP001" data-location="NBT" data-system="TRA">
+    
+<div id="zoom-container">
+    <div id="mimic-wrapper">
+        
+    <div style="position: absolute; left: 501px; top: 476px; text-align: center;" data-equipment="SUP001" data-location="NBT" data-system="TRA">
         <div id="sym_1" class="pump-container"></div>
     </div>
+
+    <div style="position: absolute; left: 483px; top: 286px; text-align: center;" data-equipment="TFAN001" data-location="NBT" data-system="TVEN">
+        <div id="sym_2" class="tfan-container"></div>
+    </div>
+
+    </div>
+</div>
+<div id="zoom-controls">
+    <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
+    <button class="zoom-btn" onclick="zoomReset()" title="Reset">1:1</button>
+    <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">-</button>
 </div>
     <script>
-  const LOC = "NBT";
+  const LOC = "STSB";
   const SYS = "Layout";
 
   const config = {
     pits: [],
     pumps: [{"id":"sym_1","equipment":"SUP001","loc":"NBT","sys":"TRA"}],
     ai_textb: [],
-    tfans: [],
+    tfans: [{"id":"sym_2","equipment":"TFAN001","loc":"NBT","sys":"TVEN"}],
     selectors: []
   };
 
@@ -41,7 +76,7 @@
     
     if(mapId('sym_1')) Core.Highlight.register('NBT-TRA-SUP001', mapId('sym_1'));
     
-    
+    if(mapId('sym_2')) Core.Highlight.register('NBT-TVEN-TFAN001', mapId('sym_2'));
     
     
     Core.Highlight.equipIfPending();
@@ -53,7 +88,7 @@
         (!config.pumps.length || document.getElementById("sym_1")) &&
         (!config.pits.length || document.getElementById("undefined")) &&
         (!config.ai_textb.length || document.getElementById("undefined")) &&
-        (!config.tfans.length || document.getElementById("undefined")) &&
+        (!config.tfans.length || document.getElementById("sym_2")) &&
         (!config.selectors.length || document.getElementById("undefined"));
         
       if (ready) { initSymbols(); } else { setTimeout(checkExist, 50); }
@@ -132,6 +167,15 @@
 
     const tfanSymbols = [];
     
+    initTasks.push(
+        Symbols.TFan.init('sym_2', {
+          equipKey: 'NBT-TVEN-TFAN001',
+          faceplate: Core.Naming.buildFullName({ loc: "NBT", sys: "TVEN", equipType: "TFAN", equipId: "001" }),
+          loc: "NBT",
+          noAutoRefresh: true,
+          doc: document
+        }).then(api => { tfanSymbols[0] = api; return api; })
+    );
 
     const selectorSymbols = [];
     
@@ -141,7 +185,7 @@
       const pumpSymbols = symbols.slice(offset, offset + 1); offset += 1;
       const pitSymbols = symbols.slice(offset, offset + 0); offset += 0;
       const aiSyms = symbols.slice(offset, offset + 0); offset += 0;
-      const tfanSyms = symbols.slice(offset, offset + 0); offset += 0;
+      const tfanSyms = symbols.slice(offset, offset + 1); offset += 1;
       const selSyms = symbols.slice(offset, offset + 0);
 
       const PanelMode = { getVisualClass: () => ({}), update: () => {}, showOverride: () => {} };
@@ -154,10 +198,6 @@
 
       const sm = SCADA?.Core?.SocketManager;
       if (sm) {
-        sm.subscribe('system:NBT', handleSystemUpdate);
-        
-        sm.subscribe('alarms', handleSystemUpdate);
-
         let cachedPoints = {};
         let cachedAlarms = [];
 
@@ -185,11 +225,17 @@
           }
         };
 
+        sm.subscribe('system:STSB', handleSystemUpdate);
+        sm.subscribe('system:NBT', handleSystemUpdate);
+        
+        sm.subscribe('alarms', handleSystemUpdate);
+
         const scope = `system:${LOC}`;
         sm.subscribe(scope, handleSystemUpdate); 
 
         window.addEventListener('beforeunload', () => {
           try {
+             sm.unsubscribe('system:STSB', handleSystemUpdate);
              sm.unsubscribe('system:NBT', handleSystemUpdate);
             sm.unsubscribe('alarms', handleSystemUpdate);
             sm.unsubscribe('events', handleSystemUpdate);
@@ -201,6 +247,38 @@
     console.log("✅ Mimic loaded");
     if (window.parent) { window.parent.postMessage({ type: "mimicReady" }, "*"); }
   }
+
+    // --- Zoom & Pan Logic ---
+    const wrapper = document.getElementById('mimic-wrapper');
+    const container = document.getElementById('zoom-container');
+    let scale = 1; let panX = 0; let panY = 0;
+    
+    function centerView() {
+        if (!container || !wrapper) return;
+        const cw = container.clientWidth; const ch = container.clientHeight;
+        const ww = 1200; const wh = 800;
+        panX = (cw - ww * scale) / 2; panY = (ch - wh * scale) / 2;
+        updateTransform();
+    }
+    window.onload = function() { centerView(); };
+    function updateTransform() { if (wrapper) wrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`; }
+    window.zoomIn = function() { const cx = container.clientWidth / 2; const cy = container.clientHeight / 2; zoomToPoint(1.2, cx, cy); };
+    window.zoomOut = function() { const cx = container.clientWidth / 2; const cy = container.clientHeight / 2; zoomToPoint(1/1.2, cx, cy); };
+    window.zoomReset = function() { scale = 1; centerView(); };
+    function zoomToPoint(factor, cx, cy) {
+        const newScale = scale * factor;
+        if (newScale < 0.1 || newScale > 10) return;
+        const worldX = (cx - panX) / scale; const worldY = (cy - panY) / scale;
+        panX = cx - worldX * newScale; panY = cy - worldY * newScale;
+        scale = newScale; updateTransform();
+    }
+    if (container) {
+        container.addEventListener('wheel', (e) => { e.preventDefault(); zoomToPoint(e.deltaY < 0 ? 1.05 : 0.95, e.clientX, e.clientY); }, { passive: false });
+        let isDragging = false; let lastX = 0; let lastY = 0;
+        container.addEventListener('mousedown', (e) => { if (e.button === 1) { isDragging = true; container.classList.add('dragging'); lastX = e.clientX; lastY = e.clientY; e.preventDefault(); } });
+        window.addEventListener('mousemove', (e) => { if (isDragging) { const dx = e.clientX - lastX; const dy = e.clientY - lastY; panX += dx; panY += dy; lastX = e.clientX; lastY = e.clientY; updateTransform(); } });
+        window.addEventListener('mouseup', () => { isDragging = false; container.classList.remove('dragging'); });
+    }
 </script>
 </body>
 </html>

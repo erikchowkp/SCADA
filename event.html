@@ -1,5 +1,3 @@
-<script src="js/mimicMap.js"></script>
-
 <div id="eventPage">
   <div id="eventListContainer">
     <div id="eventList">
@@ -20,7 +18,7 @@
     </div>
   </div>
   <div id="eventFilter">
-    
+
     <div class="filter-tabs">
       <button data-pane="loc">Loc.</button>
       <button data-pane="time">Time</button>
@@ -31,121 +29,122 @@
 
     <div id="filter-panes">
 
-    <div class="filter-pane" data-pane="loc" style="display:none;">
-      <h4>Location</h4>
-      <div class="filter-list">
-        <label><input type="checkbox" value="STA1" data-filter="locations"> STA1</label>
-        <label><input type="checkbox" value="STA2" data-filter="locations"> STA2</label>
-        <label><input type="checkbox" value="TUN1" data-filter="locations"> TUN1</label>
-        <label><input type="checkbox" value="NBT" data-filter="locations"> NBT</label>
+      <div class="filter-pane" data-pane="loc" style="display:none;">
+        <h4>Location</h4>
+        <div class="filter-list">
+          <label><input type="checkbox" value="STA1" data-filter="locations"> STA1</label>
+          <label><input type="checkbox" value="STA2" data-filter="locations"> STA2</label>
+          <label><input type="checkbox" value="TUN1" data-filter="locations"> TUN1</label>
+          <label><input type="checkbox" value="NBT" data-filter="locations"> NBT</label>
+        </div>
       </div>
+
+      <div class="filter-pane" data-pane="time" style="display:none;">
+        <h4>Time Range</h4>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label>
+            From: <input type="datetime-local" id="timeFilterFrom">
+          </label>
+          <label>
+            To: <input type="datetime-local" id="timeFilterTo">
+          </label>
+        </div>
+      </div>
+
+
+      <div class="filter-pane" data-pane="sys">
+        <h4>System</h4>
+        <div class="filter-list">
+          <label><input type="checkbox" value="TRA" data-filter="systems"> TRA</label>
+          <label><input type="checkbox" value="VENT" data-filter="systems"> VENT</label>
+          <label><input type="checkbox" value="FIRE" data-filter="systems"> FIRE</label>
+        </div>
+      </div>
+
+      <div class="filter-pane" data-pane="etype" style="display:none;">
+        <h4>Event Type</h4>
+        <div class="filter-list" id="etypeFilterList">
+          <!-- checkboxes will be generated dynamically -->
+        </div>
+      </div>
+
+
+      <div class="filter-pane" data-pane="sort" style="display:none;">
+        <h4>Sort Order</h4>
+        <div class="sort-list">
+          <label>
+            1st:
+            <select id="sort1">
+              <option value="">-- None --</option>
+              <option value="ts">Time</option>
+              <option value="loc">Location</option>
+              <option value="sys">System</option>
+              <option value="label">Label</option>
+              <option value="desc">Description</option>
+              <option value="state">State</option>
+              <option value="type">Type</option>
+            </select>
+            <select id="sortDir1">
+              <option value="desc">↓</option>
+              <option value="asc">↑</option>
+            </select>
+          </label>
+          <label>
+            2nd:
+            <select id="sort2">
+              <option value="">-- None --</option>
+              <option value="ts">Time</option>
+              <option value="loc">Location</option>
+              <option value="sys">System</option>
+              <option value="label">Label</option>
+              <option value="desc">Description</option>
+              <option value="state">State</option>
+              <option value="type">Type</option>
+            </select>
+            <select id="sortDir2">
+              <option value="asc">↑</option>
+              <option value="desc">↓</option>
+            </select>
+          </label>
+          <label>
+            3rd:
+            <select id="sort3">
+              <option value="">-- None --</option>
+              <option value="ts">Time</option>
+              <option value="loc">Location</option>
+              <option value="sys">System</option>
+              <option value="label">Label</option>
+              <option value="desc">Description</option>
+              <option value="state">State</option>
+              <option value="type">Type</option>
+            </select>
+            <select id="sortDir3">
+              <option value="asc">↑</option>
+              <option value="desc">↓</option>
+            </select>
+          </label>
+        </div>
+        <p style="font-size:11px;color:#555;margin-top:4px;">
+          Select at least one column. Sorting is applied in order of priority.
+        </p>
+      </div>
+
+
+
     </div>
 
-    <div class="filter-pane" data-pane="time" style="display:none;">
-      <h4>Time Range</h4>
-      <div style="display:flex; flex-direction:column; gap:6px;">
-        <label>
-          From: <input type="datetime-local" id="timeFilterFrom">
-        </label>
-        <label>
-          To: <input type="datetime-local" id="timeFilterTo">
-        </label>
-      </div>
+    <div class="filter-actions">
+      <button onclick="SCADA.UI.Events.applyFilters()">Apply</button>
+      <button onclick="SCADA.UI.Events.resetFilters()">Reset</button>
     </div>
 
-
-    <div class="filter-pane" data-pane="sys">
-      <h4>System</h4>
-      <div class="filter-list">
-        <label><input type="checkbox" value="TRA" data-filter="systems"> TRA</label>
-        <label><input type="checkbox" value="VENT" data-filter="systems"> VENT</label>
-        <label><input type="checkbox" value="FIRE" data-filter="systems"> FIRE</label>
-      </div>
+    <div id="eventCount" style="margin-top:4px; font-size:12px; color:#333; text-align:right;"></div>
+    <div id="refreshPaused" style="margin-top:2px; font-size:12px; color:red; text-align:right; display:none;"> 🔴
+      Auto-refresh paused (time filter active)
     </div>
 
-    <div class="filter-pane" data-pane="etype" style="display:none;">
-      <h4>Event Type</h4>
-      <div class="filter-list" id="etypeFilterList">
-        <!-- checkboxes will be generated dynamically -->
-      </div>
-    </div>
+  </div>
 
-
-    <div class="filter-pane" data-pane="sort" style="display:none;">
-      <h4>Sort Order</h4>
-      <div class="sort-list">
-        <label>
-          1st:
-          <select id="sort1">
-            <option value="">-- None --</option>
-            <option value="ts">Time</option>
-            <option value="loc">Location</option>
-            <option value="sys">System</option>
-            <option value="label">Label</option>
-            <option value="desc">Description</option>
-            <option value="state">State</option>
-            <option value="type">Type</option>
-          </select>
-          <select id="sortDir1">
-            <option value="desc">↓</option>
-            <option value="asc">↑</option>
-          </select>
-        </label>
-        <label>
-          2nd:
-          <select id="sort2">
-            <option value="">-- None --</option>
-            <option value="ts">Time</option>
-            <option value="loc">Location</option>
-            <option value="sys">System</option>
-            <option value="label">Label</option>
-            <option value="desc">Description</option>
-            <option value="state">State</option>
-            <option value="type">Type</option>
-          </select>
-          <select id="sortDir2">
-            <option value="asc">↑</option>
-            <option value="desc">↓</option>
-          </select>
-        </label>
-        <label>
-          3rd:
-          <select id="sort3">
-            <option value="">-- None --</option>
-            <option value="ts">Time</option>
-            <option value="loc">Location</option>
-            <option value="sys">System</option>
-            <option value="label">Label</option>
-            <option value="desc">Description</option>
-            <option value="state">State</option>
-            <option value="type">Type</option>
-          </select>
-          <select id="sortDir3">
-            <option value="asc">↑</option>
-            <option value="desc">↓</option>
-          </select>
-        </label>
-      </div>
-      <p style="font-size:11px;color:#555;margin-top:4px;">
-        Select at least one column. Sorting is applied in order of priority.
-      </p>
-    </div>
-
-
-    
-      </div>
-
-      <div class="filter-actions">
-        <button onclick="SCADA.UI.Events.applyFilters()">Apply</button>
-        <button onclick="SCADA.UI.Events.resetFilters()">Reset</button>
-      </div>
-
-      <div id="eventCount" style="margin-top:4px; font-size:12px; color:#333; text-align:right;"></div>
-      <div id="refreshPaused" style="margin-top:2px; font-size:12px; color:red; text-align:right; display:none;"> 🔴 Auto-refresh paused (time filter active)
-</div>
-
-    </div>
-    
 </div>
 
 <style>
@@ -156,16 +155,17 @@
     padding: 12px;
     height: 100%;
     box-sizing: border-box;
-    user-select: none;   /* 👈 prevent text selection */
+    user-select: none;
+    /* 👈 prevent text selection */
   }
 
   #eventList table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: fixed; 
+    table-layout: fixed;
   }
 
-  #eventList th, 
+  #eventList th,
   #eventList td {
     padding: 6px 10px;
     border: 1px solid #7b7b7b;
@@ -173,27 +173,60 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+
   #eventList th {
     background: #c9c9c9;
-    cursor: default;     /* 👈 force normal arrow cursor */
+    cursor: default;
+    /* 👈 force normal arrow cursor */
   }
+
   #eventList tr:hover {
-    background-color: #f0f0f0;  /* light grey highlight */
+    background-color: #f0f0f0;
+    /* light grey highlight */
   }
-  #eventList th:nth-child(1), 
-  #eventList td:nth-child(1) { width: 200px; } /* Time */
-  #eventList th:nth-child(2), 
-  #eventList td:nth-child(2) { width: 50px; }  /* Loc */
-  #eventList th:nth-child(3), 
-  #eventList td:nth-child(3) { width: 50px; }  /* Sys */
-  #eventList th:nth-child(4), 
-  #eventList td:nth-child(4) { width: 70px; } /* Label */
-  #eventList th:nth-child(5), 
-  #eventList td:nth-child(5) { width: auto; }  /* Description = flexible */
-  #eventList th:nth-child(6), 
-  #eventList td:nth-child(6) { width: 120px; } /* State */
-  #eventList th:nth-child(7), 
-  #eventList td:nth-child(7) { width: 60px; }  /* Type */
+
+  #eventList th:nth-child(1),
+  #eventList td:nth-child(1) {
+    width: 200px;
+  }
+
+  /* Time */
+  #eventList th:nth-child(2),
+  #eventList td:nth-child(2) {
+    width: 50px;
+  }
+
+  /* Loc */
+  #eventList th:nth-child(3),
+  #eventList td:nth-child(3) {
+    width: 50px;
+  }
+
+  /* Sys */
+  #eventList th:nth-child(4),
+  #eventList td:nth-child(4) {
+    width: 70px;
+  }
+
+  /* Label */
+  #eventList th:nth-child(5),
+  #eventList td:nth-child(5) {
+    width: auto;
+  }
+
+  /* Description = flexible */
+  #eventList th:nth-child(6),
+  #eventList td:nth-child(6) {
+    width: 120px;
+  }
+
+  /* State */
+  #eventList th:nth-child(7),
+  #eventList td:nth-child(7) {
+    width: 60px;
+  }
+
+  /* Type */
 
   #eventPage {
     display: flex;
@@ -227,6 +260,7 @@
     background: #e5e5e5;
     cursor: pointer;
   }
+
   .filter-tabs button.active {
     background: #fff;
     font-weight: bold;
@@ -262,53 +296,56 @@
     display: flex;
     justify-content: space-between;
   }
+
   .filter-actions button {
     flex: 1;
     margin: 2px;
   }
 
   .filter-list {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr); /* 2 columns */
-  gap: 4px 8px;
-  max-height: 100px;
-  overflow-y: auto;
-  font-size: 12px;
-}
-.sort-list {
-  display: flex;
-  flex-direction: column;  /* stack items vertically */
-  gap: 6px;                /* space between rows */
-}
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    /* 2 columns */
+    gap: 4px 8px;
+    max-height: 100px;
+    overflow-y: auto;
+    font-size: 12px;
+  }
 
-.sort-list label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13px;
-}
-.sort-list select {
-  flex: 1;
-  margin-left: 8px;
-}
+  .sort-list {
+    display: flex;
+    flex-direction: column;
+    /* stack items vertically */
+    gap: 6px;
+    /* space between rows */
+  }
 
+  .sort-list label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+  }
 
-
+  .sort-list select {
+    flex: 1;
+    margin-left: 8px;
+  }
 </style>
 
 <script>
 
-function updateEventFilterMarker() {
-  const hasFilter =
-    currentFilters.systems.length > 0 ||
-    currentFilters.locations.length > 0 ||
-    currentFilters.eventTypes.length > 0 ||
-    currentFilters.time.from ||
-    currentFilters.time.to;
+  function updateEventFilterMarker() {
+    const hasFilter =
+      currentFilters.systems.length > 0 ||
+      currentFilters.locations.length > 0 ||
+      currentFilters.eventTypes.length > 0 ||
+      currentFilters.time.from ||
+      currentFilters.time.to;
 
-  // 🧭 Use global helper in index.html to handle marker visibility
-  window.parent?.SCADA?.UI?.updateFilterMarker("event", hasFilter);
-}
+    // 🧭 Use global helper in index.html to handle marker visibility
+    window.parent?.SCADA?.UI?.updateFilterMarker("event", hasFilter);
+  }
 
   // === Persistent filter storage ===
   function loadSavedFilters() {
@@ -361,12 +398,12 @@ function updateEventFilterMarker() {
     window.SCADA = window.parent.SCADA;
     console.log("✅ Linked SCADA namespace from parent (iframe mode)");
   } else {
-    window.SCADA = window.SCADA || { Core:{}, UI:{}, Symbols:{}, State:{} };
+    window.SCADA = window.SCADA || { Core: {}, UI: {}, Symbols: {}, State: {} };
     console.warn("⚠️ Running standalone (no parent SCADA found)");
   }
 
   // === Phase 5: SCADA namespace bootstrap ===
-  window.SCADA = window.SCADA || { Core:{}, Symbols:{}, UI:{}, State:{} };
+  window.SCADA = window.SCADA || { Core: {}, Symbols: {}, UI: {}, State: {} };
   SCADA.UI = SCADA.UI || {};
   SCADA.UI.Events = SCADA.UI.Events || {};
 
@@ -379,7 +416,7 @@ function updateEventFilterMarker() {
     time: { from: null, to: null },
     sort: [{ key: "ts", dir: "desc" }]
   };
- 
+
   function populateEventTypeFilters(events) {
     const listDiv = document.getElementById("etypeFilterList");
     if (!listDiv) return;
@@ -390,7 +427,7 @@ function updateEventFilterMarker() {
     );
 
     // Collect all unique types from events
-    const types = [...new Set(events.map(ev => {const t = (ev.type || "").trim().toUpperCase();return t === "" ? "(NONE)" : t; }))].sort();
+    const types = [...new Set(events.map(ev => { const t = (ev.type || "").trim().toUpperCase(); return t === "" ? "(NONE)" : t; }))].sort();
 
 
     // Clear previous checkboxes
@@ -415,45 +452,45 @@ function updateEventFilterMarker() {
 
 
 
-// Persist filter state across page switches
-const currentFilters = window.currentFilters;
+  // Persist filter state across page switches
+  const currentFilters = window.currentFilters;
 
-function setActivePane(pane) {
-  const panel = document.getElementById("eventPage");
-  if (!panel) return;
+  function setActivePane(pane) {
+    const panel = document.getElementById("eventPage");
+    if (!panel) return;
 
-  const buttons = panel.querySelectorAll('#eventFilter .filter-tabs button');
-  const panes   = panel.querySelectorAll('#eventFilter .filter-pane');
+    const buttons = panel.querySelectorAll('#eventFilter .filter-tabs button');
+    const panes = panel.querySelectorAll('#eventFilter .filter-pane');
 
-  const valid = ["loc","time","sys","etype","sort"];
-  if (!valid.includes(pane)) pane = "sys";
+    const valid = ["loc", "time", "sys", "etype", "sort"];
+    if (!valid.includes(pane)) pane = "sys";
 
-  buttons.forEach(b => b.classList.toggle('active', b.dataset.pane === pane));
-  panes.forEach(p => p.style.display = (p.dataset.pane === pane) ? 'block' : 'none');
+    buttons.forEach(b => b.classList.toggle('active', b.dataset.pane === pane));
+    panes.forEach(p => p.style.display = (p.dataset.pane === pane) ? 'block' : 'none');
 
-  console.log("Restored filter tab:", pane);
-}
+    console.log("Restored filter tab:", pane);
+  }
 
-function initEventFilterTabs() {
-  const panel = document.getElementById("eventPage");
-  if (!panel) return;
+  function initEventFilterTabs() {
+    const panel = document.getElementById("eventPage");
+    if (!panel) return;
 
-  const buttons = panel.querySelectorAll('#eventFilter .filter-tabs button');
-  buttons.forEach(btn => {
-    // Remove old listener before re-binding
-    btn.replaceWith(btn.cloneNode(true));
-  });
+    const buttons = panel.querySelectorAll('#eventFilter .filter-tabs button');
+    buttons.forEach(btn => {
+      // Remove old listener before re-binding
+      btn.replaceWith(btn.cloneNode(true));
+    });
 
-  const freshButtons = panel.querySelectorAll('#eventFilter .filter-tabs button');
-  freshButtons.forEach(btn => {
-    btn.onclick = () => {
-      currentFilters.activePane = btn.dataset.pane;
-      setActivePane(currentFilters.activePane);
-    };
-  });
+    const freshButtons = panel.querySelectorAll('#eventFilter .filter-tabs button');
+    freshButtons.forEach(btn => {
+      btn.onclick = () => {
+        currentFilters.activePane = btn.dataset.pane;
+        setActivePane(currentFilters.activePane);
+      };
+    });
 
-  setActivePane(currentFilters.activePane);
-}
+    setActivePane(currentFilters.activePane);
+  }
 
   function applyEventFilters() {
     const panel = document.getElementById("eventPage");
@@ -470,24 +507,24 @@ function initEventFilterTabs() {
     if (s3) currentFilters.sort.push({ key: s3, dir: d3 });
 
 
-     
-
-      currentFilters.systems = [...panel.querySelectorAll('.filter-pane[data-pane="sys"] input[type=checkbox]:checked')]
-        .map(cb => cb.value.trim().toUpperCase());
-
-      currentFilters.locations = [...panel.querySelectorAll('.filter-pane[data-pane="loc"] input[type=checkbox]:checked')]
-        .map(cb => cb.value.trim().toUpperCase());
-
-      const fromInput = panel.querySelector('#timeFilterFrom');
-      const toInput   = panel.querySelector('#timeFilterTo');
-      // preserve local time exactly as user entered it
-      currentFilters.time.from = fromInput.value || null;
-      currentFilters.time.to   = toInput.value   || null;
 
 
+    currentFilters.systems = [...panel.querySelectorAll('.filter-pane[data-pane="sys"] input[type=checkbox]:checked')]
+      .map(cb => cb.value.trim().toUpperCase());
 
-      currentFilters.eventTypes = [...panel.querySelectorAll('#etypeFilterList input[type=checkbox]:checked')]
-        .map(cb => cb.value.trim().toUpperCase());
+    currentFilters.locations = [...panel.querySelectorAll('.filter-pane[data-pane="loc"] input[type=checkbox]:checked')]
+      .map(cb => cb.value.trim().toUpperCase());
+
+    const fromInput = panel.querySelector('#timeFilterFrom');
+    const toInput = panel.querySelector('#timeFilterTo');
+    // preserve local time exactly as user entered it
+    currentFilters.time.from = fromInput.value || null;
+    currentFilters.time.to = toInput.value || null;
+
+
+
+    currentFilters.eventTypes = [...panel.querySelectorAll('#etypeFilterList input[type=checkbox]:checked')]
+      .map(cb => cb.value.trim().toUpperCase());
 
     loadEvents();
     syncFilterCheckboxes();  // keep UI in sync
@@ -503,13 +540,13 @@ function initEventFilterTabs() {
       }
     }
 
-  saveFilters(); 
-  // Normalize back to Date objects in-memory (for next sync)
-  if (typeof currentFilters.time.from === "string" && currentFilters.time.from)
-    currentFilters.time.from = new Date(currentFilters.time.from);
-  if (typeof currentFilters.time.to === "string" && currentFilters.time.to)
-    currentFilters.time.to = new Date(currentFilters.time.to);
-  updateEventFilterMarker();
+    saveFilters();
+    // Normalize back to Date objects in-memory (for next sync)
+    if (typeof currentFilters.time.from === "string" && currentFilters.time.from)
+      currentFilters.time.from = new Date(currentFilters.time.from);
+    if (typeof currentFilters.time.to === "string" && currentFilters.time.to)
+      currentFilters.time.to = new Date(currentFilters.time.to);
+    updateEventFilterMarker();
   }
 
   function resetEventFilters() {
@@ -531,71 +568,71 @@ function initEventFilterTabs() {
     panel.querySelector('#sortDir3').value = "asc";
 
     loadEvents();
-  
+
     const pausedMsg = document.getElementById("refreshPaused");
     if (pausedMsg) pausedMsg.style.display = "none";   // hide indicator after reset
-    saveFilters(); 
+    saveFilters();
     updateEventFilterMarker();
   }
 
- // --- Event load iwth iframe ---
-async function openEventList() {
-  stopAllRefreshTimers();
+  // --- Event load iwth iframe ---
+  async function openEventList() {
+    stopAllRefreshTimers();
 
-  try {
-    const frame = document.getElementById("mimicFrame");
-    if (!frame) throw new Error("No mimicFrame iframe found");
+    try {
+      const frame = document.getElementById("mimicFrame");
+      if (!frame) throw new Error("No mimicFrame iframe found");
 
-    // ✅ Load inside iframe
-    frame.src = "event.html";
+      // ✅ Load inside iframe
+      frame.src = "event.html";
 
-    // ✅ Update title
-    const titleEl = document.getElementById("mimicTitle");
-    if (titleEl) titleEl.textContent = "Event List";
+      // ✅ Update title
+      const titleEl = document.getElementById("mimicTitle");
+      if (titleEl) titleEl.textContent = "Event List";
 
-    recordMimic("eventList", openEventList);
-  } catch (err) {
-    console.error("Event list load error:", err);
+      recordMimic("eventList", openEventList);
+    } catch (err) {
+      console.error("Event list load error:", err);
+    }
   }
-}
 
-// === Utility: select the latest 500 events by timestamp ===
-function selectLatest500(arr) {
-  if (!Array.isArray(arr)) return [];
-  // Support either 'ts' or 'time' fields
-  const getTs = (e) => new Date(e.ts || e.time || 0).getTime();
-  // sort all events newest→oldest, then take top 500
-  return arr.slice().sort((a, b) => getTs(b) - getTs(a)).slice(0, 500);
-}
+  // === Utility: select the latest 500 events by timestamp ===
+  function selectLatest500(arr) {
+    if (!Array.isArray(arr)) return [];
+    // Support either 'ts' or 'time' fields
+    const getTs = (e) => new Date(e.ts || e.time || 0).getTime();
+    // sort all events newest→oldest, then take top 500
+    return arr.slice().sort((a, b) => getTs(b) - getTs(a)).slice(0, 500);
+  }
 
-// --- Phase 6 universal loader ---
-async function loadEvents() {
-  try {
-    // 1️⃣ If time filter active, load full static dataset and skip live updates
-    if (currentFilters.time.from || currentFilters.time.to) {
+  // --- Phase 6 universal loader ---
+  async function loadEvents() {
+    try {
+      // 1️⃣ If time filter active, load full static dataset and skip live updates
+      if (currentFilters.time.from || currentFilters.time.to) {
+        const res = await fetch("events.json", { cache: "no-store" });
+        const json = await res.json();
+        renderEventTable(json); // show all events, no 500 limit
+        console.log("⏸ Time filter active → static full dataset loaded");
+        return;
+      }
+
+      // 2️⃣ Otherwise use live cached data if available
+      const cachedAll = window.parent?.SCADA?.Core?.PollManager?.latestData?.events;
+      if (Array.isArray(cachedAll)) {
+        console.log("Loaded", cachedAll.length, "events from global cache");
+        renderEventTable(selectLatest500(cachedAll));
+        return;
+      }
+
+      // 3️⃣ Fallback: full fetch + trim to 500
       const res = await fetch("events.json", { cache: "no-store" });
       const json = await res.json();
-      renderEventTable(json); // show all events, no 500 limit
-      console.log("⏸ Time filter active → static full dataset loaded");
-      return;
+      renderEventTable(selectLatest500(json));
+    } catch (err) {
+      console.error("⚠️ loadEvents() error:", err);
     }
-
-    // 2️⃣ Otherwise use live cached data if available
-    const cachedAll = window.parent?.SCADA?.Core?.PollManager?.latestData?.events;
-    if (Array.isArray(cachedAll)) {
-      console.log("Loaded", cachedAll.length, "events from global cache");
-      renderEventTable(selectLatest500(cachedAll));
-      return;
-    }
-
-    // 3️⃣ Fallback: full fetch + trim to 500
-    const res = await fetch("events.json", { cache: "no-store" });
-    const json = await res.json();
-    renderEventTable(selectLatest500(json));
-  } catch (err) {
-    console.error("⚠️ loadEvents() error:", err);
   }
-}
 
 
 
@@ -625,7 +662,7 @@ async function loadEvents() {
     // Time filter — supports "YYYY-MM-DDTHH:mm" strings
     if (currentFilters.time.from || currentFilters.time.to) {
       const from = currentFilters.time.from ? new Date(currentFilters.time.from) : null;
-      const to   = currentFilters.time.to   ? new Date(currentFilters.time.to)   : null;
+      const to = currentFilters.time.to ? new Date(currentFilters.time.to) : null;
 
       filtered = filtered.filter(ev => {
         const ts = new Date(ev.ts || ev.time);
@@ -698,27 +735,42 @@ async function loadEvents() {
           if (window.parent) window.parent.__highlightEquipKey = key;
           else window.__highlightEquipKey = key;
 
-          const mapped = (SCADA?.Core?.MimicMap && SCADA.Core.MimicMap[key])
-            ? SCADA.Core.MimicMap[key]
-            : null;
+          fetch(`/api/navigation/lookup?tag=${key}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.files && data.files.length === 1) {
+                console.log("Event Nav:", data.files[0]);
+                if (typeof SCADA?.UI?.selectMimicFile === "function") {
+                  SCADA.UI.selectMimicFile(data.files[0]);
+                }
+              } else if (data.files && data.files.length > 1) {
+                // Simple prompt for now, or could use the same menu helper
+                // For consistency, let's inject a simple helper or assume the one in alarm.html is reusable? 
+                // No, standalone file. Let's add the helper function here too.
+                showNavigationMenu(data.files, e.pageX, e.pageY);
+              } else {
+                console.warn("Event Nav: No specific page found for tag:", key);
+                if (typeof SCADA?.UI?.selectSystem === "function") {
+                  SCADA.State.currentLocation = (ev.loc || "").toUpperCase();
+                  SCADA.UI.selectSystem((ev.sys || "").toUpperCase());
+                }
+              }
+            })
+            .catch(err => {
+              console.error("Event nav lookup failed:", err);
+              if (typeof SCADA?.UI?.selectSystem === "function") {
+                SCADA.State.currentLocation = (ev.loc || "").toUpperCase();
+                SCADA.UI.selectSystem((ev.sys || "").toUpperCase());
+              }
+            });
+        });
 
-          if (mapped && typeof SCADA?.UI?.selectMimicFile === "function") {
-            console.log("Event dblclick mapped", key, "->", mapped);
-            SCADA.UI.selectMimicFile(mapped);
-          } else if (typeof SCADA?.UI?.selectSystem === "function") {
-            console.log("Event dblclick fallback", key);
-            SCADA.State.currentLocation = (ev.loc || "").toUpperCase();
-            SCADA.UI.selectSystem((ev.sys || "").toUpperCase());
-          }
-
-          });
- 
         tbody.appendChild(tr);
       });
-    
-     tbody.parentElement.scrollTop = scrollPos;
+
+    tbody.parentElement.scrollTop = scrollPos;
     console.log("Active filter:", currentFilters.systems);
-    
+
     // Update event count in filter panel
     const countEl = document.getElementById("eventCount");
     if (countEl) {
@@ -729,18 +781,67 @@ async function loadEvents() {
 
   }
 
+  // --- Helper for Multiple Matches ---
+  function showNavigationMenu(files, x, y) {
+    const menu = document.createElement('div');
+    menu.style.position = 'fixed';
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+    menu.style.background = '#fff';
+    menu.style.border = '1px solid #ccc';
+    menu.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+    menu.style.zIndex = '9999';
+    menu.style.padding = '5px 0';
+    menu.style.minWidth = '150px';
+
+    const title = document.createElement('div');
+    title.textContent = "Select Page:";
+    title.style.padding = '4px 10px';
+    title.style.fontWeight = 'bold';
+    title.style.background = '#eee';
+    menu.appendChild(title);
+
+    files.forEach(file => {
+      const item = document.createElement('div');
+      item.textContent = file;
+      item.style.padding = '6px 10px';
+      item.style.cursor = 'pointer';
+      item.onmouseover = () => item.style.background = '#f0f0f0';
+      item.onmouseout = () => item.style.background = '#fff';
+      item.onclick = () => {
+        if (typeof SCADA?.UI?.selectMimicFile === "function") {
+          SCADA.UI.selectMimicFile(file);
+        }
+        menu.remove();
+      };
+      menu.appendChild(item);
+    });
+
+    document.body.appendChild(menu);
+
+    // Close on outside click
+    setTimeout(() => {
+      document.addEventListener('click', function closeMenu(e) {
+        if (!menu.contains(e.target)) {
+          menu.remove();
+          document.removeEventListener('click', closeMenu);
+        }
+      });
+    }, 100);
+  }
+
   async function clearEvents() {
-    await fetch("/api/events/clear", { method:"POST" });
+    await fetch("/api/events/clear", { method: "POST" });
     loadEvents();
   }
 
 
-// --- Register under SCADA.UI.Events ---
-SCADA.UI.Events.loadEvents = loadEvents;
-SCADA.UI.Events.applyFilters = applyEventFilters;
-SCADA.UI.Events.resetFilters = resetEventFilters;
-SCADA.UI.Events.syncCheckboxes = syncFilterCheckboxes;
-SCADA.UI.Events.initTabs = initEventFilterTabs;
+  // --- Register under SCADA.UI.Events ---
+  SCADA.UI.Events.loadEvents = loadEvents;
+  SCADA.UI.Events.applyFilters = applyEventFilters;
+  SCADA.UI.Events.resetFilters = resetEventFilters;
+  SCADA.UI.Events.syncCheckboxes = syncFilterCheckboxes;
+  SCADA.UI.Events.initTabs = initEventFilterTabs;
 
   function syncFilterCheckboxes() {
     const panel = document.getElementById("eventPage");
@@ -757,7 +858,7 @@ SCADA.UI.Events.initTabs = initEventFilterTabs;
     });
 
     const fromInput = panel.querySelector('#timeFilterFrom');
-    const toInput   = panel.querySelector('#timeFilterTo');
+    const toInput = panel.querySelector('#timeFilterTo');
 
     // Safely handle either ISO strings or Date objects
     if (fromInput) {
@@ -781,13 +882,13 @@ SCADA.UI.Events.initTabs = initEventFilterTabs;
     }
 
     const etypeCbs = panel.querySelectorAll('#etypeFilterList input[type=checkbox]');
-      etypeCbs.forEach(cb => {
-        cb.checked = currentFilters.eventTypes.includes(cb.value.trim().toUpperCase());
-      });
+    etypeCbs.forEach(cb => {
+      cb.checked = currentFilters.eventTypes.includes(cb.value.trim().toUpperCase());
+    });
 
-    const sortSelects = ["sort1","sort2","sort3"].forEach((id, i) => {
+    const sortSelects = ["sort1", "sort2", "sort3"].forEach((id, i) => {
       const el = panel.querySelector('#' + id);
-      const dirEl = panel.querySelector('#sortDir' + (i+1));
+      const dirEl = panel.querySelector('#sortDir' + (i + 1));
       if (el) el.value = currentFilters.sort[i]?.key || "";
       if (dirEl) dirEl.value = currentFilters.sort[i]?.dir || "asc";
     });
@@ -796,81 +897,81 @@ SCADA.UI.Events.initTabs = initEventFilterTabs;
 
   }
 
-  
-// ==========================================================
-// Phase 6 — Reliable real-time EventList via PollManager
-// ==========================================================
-// --- Auto-save Event filters when page unloads ---
-window.addEventListener("beforeunload", () => saveFilters());
 
-document.addEventListener("DOMContentLoaded", () => {
-  function trySubscribe() {
-    try {
-      const PM = window.parent?.SCADA?.Core?.PollManager;
-      if (!PM) {
-        console.warn("⚠️ PollManager not ready — retrying...");
-        setTimeout(trySubscribe, 1000);
-        return;
-      }
+  // ==========================================================
+  // Phase 6 — Reliable real-time EventList via PollManager
+  // ==========================================================
+  // --- Auto-save Event filters when page unloads ---
+  window.addEventListener("beforeunload", () => saveFilters());
 
-      // --- Load saved filters first ---
-      const saved = loadSavedFilters();
-      if (saved) window.currentFilters = saved;
-
-      // --- Restore UI and re-sync checkboxes ---
-      restoreFilterUI();
-      syncFilterCheckboxes();
-      initEventFilterTabs();
-
-      // --- Apply marker & then load events using restored filters ---
-      updateEventFilterMarker();
-      loadEvents();
-
-      
-      // --- Restore "auto-refresh paused" indicator if time filter is active ---
-      const pausedMsg = document.getElementById("refreshPaused");
-      if (pausedMsg) {
-        if (currentFilters.time.from || currentFilters.time.to) {
-          pausedMsg.style.display = "block";
-        } else {
-          pausedMsg.style.display = "none";
+  document.addEventListener("DOMContentLoaded", () => {
+    function trySubscribe() {
+      try {
+        const PM = window.parent?.SCADA?.Core?.PollManager;
+        if (!PM) {
+          console.warn("⚠️ PollManager not ready — retrying...");
+          setTimeout(trySubscribe, 1000);
+          return;
         }
+
+        // --- Load saved filters first ---
+        const saved = loadSavedFilters();
+        if (saved) window.currentFilters = saved;
+
+        // --- Restore UI and re-sync checkboxes ---
+        restoreFilterUI();
+        syncFilterCheckboxes();
+        initEventFilterTabs();
+
+        // --- Apply marker & then load events using restored filters ---
+        updateEventFilterMarker();
+        loadEvents();
+
+
+        // --- Restore "auto-refresh paused" indicator if time filter is active ---
+        const pausedMsg = document.getElementById("refreshPaused");
+        if (pausedMsg) {
+          if (currentFilters.time.from || currentFilters.time.to) {
+            pausedMsg.style.display = "block";
+          } else {
+            pausedMsg.style.display = "none";
+          }
+        }
+
+        // === Phase 8.2.1 correction: stable PollManager subscription ===
+        if (typeof PM.subscribe === "function") {
+          // Clear any previous local subscription
+          if (window.__eventUnsub) {
+            window.__eventUnsub();
+            window.__eventUnsub = null;
+          }
+
+          // Register fresh subscription
+          window.__eventUnsub = PM.subscribe(({ events }) => {
+            if (!Array.isArray(events)) return;
+
+            // ⏸ Skip real-time update if time filter is active
+            if (currentFilters.time.from || currentFilters.time.to) return;
+
+            renderEventTable(selectLatest500(events));
+          });
+
+          console.log("✅ EventList subscribed to PollManager live updates (WebSocket mode)");
+        } else {
+          console.warn("⚠️ PollManager.subscribe() missing — fallback to manual fetch");
+          loadEvents();
+          setInterval(loadEvents, 2000);
+        }
+
+      } catch (err) {
+        console.error("⚠️ Error while subscribing EventList:", err);
+        setTimeout(trySubscribe, 1000);
       }
-
-    // === Phase 8.2.1 correction: stable PollManager subscription ===
-    if (typeof PM.subscribe === "function") {
-      // Clear any previous local subscription
-      if (window.__eventUnsub) {
-        window.__eventUnsub();
-        window.__eventUnsub = null;
-      }
-
-      // Register fresh subscription
-      window.__eventUnsub = PM.subscribe(({ events }) => {
-        if (!Array.isArray(events)) return;
-
-        // ⏸ Skip real-time update if time filter is active
-        if (currentFilters.time.from || currentFilters.time.to) return;
-
-        renderEventTable(selectLatest500(events));
-      });
-
-      console.log("✅ EventList subscribed to PollManager live updates (WebSocket mode)");
-    } else {
-      console.warn("⚠️ PollManager.subscribe() missing — fallback to manual fetch");
-      loadEvents();
-      setInterval(loadEvents, 2000);
     }
 
-    } catch (err) {
-      console.error("⚠️ Error while subscribing EventList:", err);
-      setTimeout(trySubscribe, 1000);
-    }
-  }
-
-  // initial attempt
-  trySubscribe();
-});
+    // initial attempt
+    trySubscribe();
+  });
 
 
 
@@ -887,5 +988,3 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
 </script>
-
-

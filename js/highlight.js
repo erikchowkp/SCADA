@@ -8,9 +8,9 @@ Now exported under SCADA.Core.Highlight.
 ===============================================================================
 */
 
-;(function (SCADA, global) {
+; (function (SCADA, global) {
   const registry = {}; // key -> array of DOM elements
-  
+
   // Ensure highlight CSS exists in a specific document (parent or iframe)
   function ensureStyle(doc) {
     if (!doc) return;
@@ -48,12 +48,33 @@ Now exported under SCADA.Core.Highlight.
 
     // Apply highlight if a pending key exists
     equipIfPending() {
-      const key = global.__highlightEquipKey;
+      const localKey = global.__highlightEquipKey;
+      const parentKey = global.parent ? global.parent.__highlightEquipKey : null;
+      const key = localKey || parentKey;
+
       if (!key) return;
       const ukey = key.toUpperCase();
 
-      if (registry[ukey]) {
-        registry[ukey].forEach(el => {
+      let target = registry[ukey];
+
+      // fallback: try stripping alpha prefix from last segment (e.g. TFAN001 -> 001)
+      if (!target) {
+        const parts = ukey.split('-');
+        if (parts.length > 0) {
+          const last = parts[parts.length - 1];
+          const numericPart = last.replace(/^[A-Z]+/, '');
+          if (numericPart && numericPart !== last) {
+            const altKey = [...parts.slice(0, -1), numericPart].join('-');
+            if (registry[altKey]) {
+              console.log(`Highlight: Fuzzy match ${ukey} -> ${altKey}`);
+              target = registry[altKey];
+            }
+          }
+        }
+      }
+
+      if (target) {
+        target.forEach(el => {
           ensureStyle(el.ownerDocument);
           el.classList.add("highlight-pulse");
           setTimeout(
@@ -62,16 +83,19 @@ Now exported under SCADA.Core.Highlight.
           );
         });
         console.log("Highlighted", ukey);
-      } else {
-        console.warn("Highlight: no element registered for", ukey);
-      }
 
-      // consume
-      global.__highlightEquipKey = null;
+        // Consume from source
+        if (key === localKey) global.__highlightEquipKey = null;
+        else if (key === parentKey && global.parent) global.parent.__highlightEquipKey = null;
+
+      } else {
+        // Only warn if we checked local and failed, or if we really expected it
+        if (key === localKey) console.warn("Highlight: no element registered for", ukey);
+      }
     }
   };
 
   // === New namespaced export ===
   SCADA.Core.Highlight = Highlight;
 
-})(window.SCADA = window.SCADA || { Core:{}, Symbols:{}, UI:{}, State:{} }, window);
+})(window.SCADA = window.SCADA || { Core: {}, Symbols: {}, UI: {}, State: {} }, window);
