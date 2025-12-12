@@ -444,3 +444,88 @@ body {
     border: 1px dashed #28a745;
     background-color: rgba(40, 167, 69, 0.1);
 }
+
+.resize-handle {
+    position: absolute;
+    top: -3px;
+    /* Center relative to 2px line height */
+    width: 8px;
+    height: 8px;
+    background-color: #007bff;
+    border: 1px solid white;
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+    border-radius: 50%;
+    cursor: nwse-resize;
+    /* 45-degree arrow style */
+    z-index: 100;
+}
+
+.resize-handle.start {
+    left: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.resize-handle.end {
+    right: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Corner Handles */
+.resize-handle.nw {
+    left: -4px;
+    top: -4px;
+    cursor: nwse-resize;
+}
+
+.resize-handle.ne {
+    right: -4px;
+    top: -4px;
+    cursor: nesw-resize;
+}
+
+.resize-handle.se {
+    right: -4px;
+    bottom: -4px;
+    top: auto;
+    /* Override default top if any */
+    cursor: nwse-resize;
+}
+
+.resize-handle.sw {
+    left: -4px;
+    bottom: -4px;
+    top: auto;
+    cursor: nesw-resize;
+}
+
+/* Side Handles */
+.resize-handle.n {
+    left: 50%;
+    top: -4px;
+    transform: translateX(-50%);
+    cursor: ns-resize;
+}
+
+.resize-handle.s {
+    left: 50%;
+    bottom: -4px;
+    top: auto;
+    transform: translateX(-50%);
+    cursor: ns-resize;
+}
+
+.resize-handle.e {
+    right: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: ew-resize;
+}
+
+.resize-handle.w {
+    left: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: ew-resize;
+}

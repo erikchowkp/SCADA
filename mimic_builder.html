@@ -188,31 +188,7 @@
         </div>
     </template>
 
-    <template id="rect-props-template">
-        <div class="form-group">
-            <label>Width (px)</label>
-            <input type="number" data-prop="width" min="10">
-        </div>
-        <div class="form-group">
-            <label>Height (px)</label>
-            <input type="number" data-prop="height" min="10">
-        </div>
-        <div class="form-group">
-            <label>Fill Color</label>
-            <input type="color" data-prop="backgroundColor" value="#cccccc">
-        </div>
-        <div class="form-group">
-            <label>Border Color</label>
-            <input type="color" data-prop="borderColor" value="#000000">
-        </div>
-        <div class="form-group">
-            <label>Border Width (px)</label>
-            <input type="number" data-prop="borderWidth" min="0" value="1">
-        </div>
-        <div class="form-group" style="margin-top: 20px;">
-            <button class="delete-btn" data-action="delete">Delete Element</button>
-        </div>
-    </template>
+
 
     <!-- Navigation Manager Modal -->
     <div id="navModal" class="modal" style="display: none;">
@@ -325,6 +301,44 @@
         window.SCADA = window.SCADA || { Core: {}, Symbols: {} };
     </script>
     <script src="symbols/tfan.js"></script>
+    <template id="rect-props-template">
+        <div class="form-group grid-2">
+            <div>
+                <label>Width</label>
+                <input type="number" data-prop="width">
+            </div>
+            <div>
+                <label>Height</label>
+                <input type="number" data-prop="height">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Fill Color</label>
+            <div style="display:flex; gap:5px;">
+                <input type="color" data-prop="backgroundColor" style="width:40px;">
+                <input type="text" data-prop="backgroundColor" placeholder="#transparent" style="flex:1">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Border Color</label>
+            <div style="display:flex; gap:5px;">
+                <input type="color" data-prop="borderColor" style="width:40px;">
+                <input type="text" data-prop="borderColor" placeholder="#000000" style="flex:1">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Border Width</label>
+            <input type="number" data-prop="borderWidth" min="0">
+        </div>
+        <div class="form-group">
+            <label>Rotation (deg)</label>
+            <input type="number" data-prop="rotation">
+        </div>
+        <div class="form-group" style="margin-top: 20px;">
+            <button class="delete-btn" data-action="delete">Delete Element</button>
+        </div>
+    </template>
+
     <script src="js/mimic_builder.js"></script>
 </body>
 

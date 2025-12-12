@@ -183,6 +183,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 backgroundColor: '#000000',
                 rotation: 0
             };
+        } else if (item.type === 'static-rect') {
+            el.props = {
+                width: 50,
+                height: 50,
+                backgroundColor: 'transparent',
+                borderColor: '#000000',
+                borderWidth: 2,
+                rotation: 0
+            };
         }
 
         canvasElements.push(el);
@@ -276,16 +285,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 div.style.height = el.props.height + 'px';
                 div.style.backgroundColor = el.props.backgroundColor;
                 div.style.transform = `rotate(${el.props.rotation}deg)`;
-                div.style.transformOrigin = '0 0';
+                div.style.transformOrigin = '0 50%';
             } else if (el.type === 'static-arrow') {
                 div.style.width = el.props.width + 'px';
                 div.style.height = el.props.height + 'px';
                 div.style.backgroundColor = el.props.backgroundColor;
                 div.style.transform = `rotate(${el.props.rotation}deg)`;
-                div.style.transformOrigin = 'center';
+                div.style.transformOrigin = '0 50%';
 
                 // Simple arrow: Line + Triangle
-                div.innerHTML = `<div style="position: absolute; right: -6px; top: 50%; transform: translateY(-50%); border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid ${el.props.backgroundColor};"></div>`;
+                // Scale head based on thickness
+                const thickness = Math.max(1, el.props.height);
+                const headSize = Math.max(6, thickness * 3); // Border Top/Bottom
+                const headLen = Math.max(8, thickness * 4);  // Border Left
+                const offset = -(headLen * 0.75); // Overlap slightly
+
+                div.innerHTML = `<div style="position: absolute; right: ${offset}px; top: 50%; transform: translateY(-50%); border-top: ${headSize}px solid transparent; border-bottom: ${headSize}px solid transparent; border-left: ${headLen}px solid ${el.props.backgroundColor};"></div>`;
+            } else if (el.type === 'static-rect') {
+                div.style.width = el.props.width + 'px';
+                div.style.height = el.props.height + 'px';
+                div.style.backgroundColor = el.props.backgroundColor;
+                div.style.border = `${el.props.borderWidth || 1}px solid ${el.props.borderColor || '#000'}`;
+                div.style.transform = `rotate(${el.props.rotation}deg)`;
             }
 
             // Interaction
@@ -310,12 +331,49 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateSelectionVisuals() {
         // Efficiently update .selected class without re-rendering DOM
         // 1. Remove from all
-        document.querySelectorAll('.canvas-element.selected').forEach(el => el.classList.remove('selected'));
+        // 1. Remove from all
+        document.querySelectorAll('.canvas-element.selected').forEach(el => {
+            el.classList.remove('selected');
+            // Remove handles
+            el.querySelectorAll('.resize-handle').forEach(h => h.remove());
+        });
 
         // 2. Add to selected
         selectedElements.forEach(el => {
             const div = document.getElementById(el.id);
-            if (div) div.classList.add('selected');
+            if (div) {
+                div.classList.add('selected');
+
+                // Add Resize Handles if Line or Arrow
+                if (el.type === 'static-line' || el.type === 'static-arrow') {
+                    // Start Handle
+                    if (!div.querySelector('.resize-handle.start')) {
+                        const startHandle = document.createElement('div');
+                        startHandle.className = 'resize-handle start';
+                        startHandle.dataset.handle = 'start';
+                        div.appendChild(startHandle);
+                    }
+                    // End Handle
+                    if (!div.querySelector('.resize-handle.end')) {
+                        const endHandle = document.createElement('div');
+                        endHandle.className = 'resize-handle end';
+                        endHandle.dataset.handle = 'end';
+                        div.appendChild(endHandle);
+                    }
+                }
+                // Add Resize Handles if Rect
+                else if (el.type === 'static-rect') {
+                    const positions = ['nw', 'ne', 'se', 'sw', 'n', 's', 'e', 'w'];
+                    positions.forEach(pos => {
+                        if (!div.querySelector(`.resize-handle.${pos}`)) {
+                            const h = document.createElement('div');
+                            h.className = `resize-handle ${pos}`;
+                            h.dataset.handle = pos;
+                            div.appendChild(h);
+                        }
+                    });
+                }
+            }
         });
     }
 
@@ -358,6 +416,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startDraggingElement(e, clickedEl) {
+        // Check if we clicked the resize handle
+        if (e.target.classList.contains('resize-handle')) {
+            startResizingElement(e, clickedEl);
+            return;
+        }
+
         const startX = e.clientX;
         const startY = e.clientY;
 
@@ -366,6 +430,9 @@ document.addEventListener('DOMContentLoaded', () => {
             item._origX = item.x;
             item._origY = item.y;
         });
+
+        // Set Body Cursor
+        document.body.style.cursor = 'move';
 
         function onMouseMove(e) {
             const dx = e.clientX - startX;
@@ -386,12 +453,170 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function onMouseUp() {
+            document.body.style.cursor = ''; // Reset immediate
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
         }
 
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
+    }
+
+        function startResizingElement(e, el) {
+        e.stopPropagation(); 
+        const handleType = e.target.dataset.handle; // start, end, nw, ne, se, sw, n, s, e, w
+
+        // Initial Properties
+        const originalX = el.x;
+        const originalY = el.y;
+        const originalW = el.props.width;
+        const originalH = el.props.height || 0;
+        const rotDeg = el.props.rotation || 0;
+        const rotRad = rotDeg * (Math.PI / 180);
+
+        // --- Logic for Lines/Arrows (Start/End) ---
+        if (handleType === 'start' || handleType === 'end') {
+            const isStartHandle = (handleType === 'start');
+            // Calculate End Point
+            const originalEndX = originalX + originalW * Math.cos(rotRad);
+            const originalEndY = originalY + originalW * Math.sin(rotRad);
+            
+            // Anchor
+            const anchorX = isStartHandle ? originalEndX : originalX;
+            const anchorY = isStartHandle ? originalEndY : originalY;
+
+            document.body.style.cursor = 'nwse-resize';
+
+            function onLineMove(e) {
+                const rect = canvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left - canvas.scrollLeft;
+                const my = e.clientY - rect.top - canvas.scrollTop;
+                
+                const dx = mx - anchorX;
+                const dy = my - anchorY;
+                const newDist = Math.sqrt(dx*dx + dy*dy);
+                
+                el.props.width = Math.max(10, newDist);
+
+                let angleRad;
+                if (isStartHandle) {
+                     angleRad = Math.atan2(anchorY - my, anchorX - mx);
+                     el.x = mx;
+                     el.y = my;
+                } else {
+                     angleRad = Math.atan2(dy, dx);
+                }
+                el.props.rotation = angleRad * (180 / Math.PI);
+                
+                updateDOM(el);
+            }
+            
+            function onLineUp() {
+                document.body.style.cursor = '';
+                document.removeEventListener('mousemove', onLineMove);
+                document.removeEventListener('mouseup', onLineUp);
+            }
+            document.addEventListener('mousemove', onLineMove);
+            document.addEventListener('mouseup', onLineUp);
+            return;
+        }
+
+        // --- Logic for Rectangles (8 Points) ---
+        const cx = originalX + originalW / 2;
+        const cy = originalY + originalH / 2;
+        
+        // Initial Local Bounds
+        const bounds = {
+            left: -originalW / 2,
+            right: originalW / 2,
+            top: -originalH / 2,
+            bottom: originalH / 2
+        };
+
+        // Determine which edges drift based on handle
+        const moveTop = handleType.includes('n');
+        const moveBottom = handleType.includes('s');
+        const moveLeft = handleType.includes('w');
+        const moveRight = handleType.includes('e');
+
+        // Set cursor based on handle
+        let cursor = 'crosshair';
+        if (moveTop && moveLeft) cursor = 'nwse-resize';
+        else if (moveTop && moveRight) cursor = 'nesw-resize';
+        else if (moveBottom && moveLeft) cursor = 'nesw-resize';
+        else if (moveBottom && moveRight) cursor = 'nwse-resize';
+        else if (moveTop || moveBottom) cursor = 'ns-resize';
+        else if (moveLeft || moveRight) cursor = 'ew-resize';
+        
+        document.body.style.cursor = cursor;
+
+        function onRectMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left - canvas.scrollLeft;
+            const my = e.clientY - rect.top - canvas.scrollTop;
+
+            // 1. Unrotate Mouse around Center to Local Space
+            const dx = mx - cx;
+            const dy = my - cy;
+            const cos = Math.cos(-rotRad);
+            const sin = Math.sin(-rotRad);
+            const mx_local = (dx * cos - dy * sin); 
+            const my_local = (dx * sin + dy * cos);
+
+            // 2. Update Bounds based on active handle
+            let newLeft = bounds.left;
+            let newRight = bounds.right;
+            let newTop = bounds.top;
+            let newBottom = bounds.bottom;
+
+            if (moveLeft) newLeft = Math.min(mx_local, bounds.right - 10);
+            if (moveRight) newRight = Math.max(mx_local, bounds.left + 10);
+            if (moveTop) newTop = Math.min(my_local, bounds.bottom - 10);
+            if (moveBottom) newBottom = Math.max(my_local, bounds.top + 10);
+
+            // 3. New Center in Unrotated Local Space
+            const newW = newRight - newLeft;
+            const newH = newBottom - newTop;
+            const newCx_local = (newLeft + newRight) / 2;
+            const newCy_local = (newTop + newBottom) / 2;
+
+            // 4. Rotate New Center back to Global
+            const cos2 = Math.cos(rotRad);
+            const sin2 = Math.sin(rotRad);
+            const finalCx = cx + (newCx_local * cos2 - newCy_local * sin2);
+            const finalCy = cy + (newCx_local * sin2 + newCy_local * cos2);
+
+            // 5. Update Props
+            el.props.width = newW;
+            el.props.height = newH;
+            
+            // 6. Update Position (Top-Left of unrotated box)
+            el.x = finalCx - newW / 2;
+            el.y = finalCy - newH / 2;
+
+            updateDOM(el);
+        }
+
+        function onRectUp() {
+            document.body.style.cursor = '';
+            document.removeEventListener('mousemove', onRectMove);
+            document.removeEventListener('mouseup', onRectUp);
+        }
+        document.addEventListener('mousemove', onRectMove);
+        document.addEventListener('mouseup', onRectUp);
+    }
+
+    function updateDOM(el) {
+        const div = document.getElementById(el.id);
+        if (div) {
+            div.style.left = el.x + 'px';
+            div.style.top = el.y + 'px';
+            div.style.width = el.props.width + 'px';
+            if (el.type === 'static-rect' || el.type === 'static-arrow') {
+                div.style.height = el.props.height + 'px';
+            }
+            div.style.transform = `rotate(${el.props.rotation}deg)`;
+        }
     }
 
     function setupCanvasInteractions() {
@@ -536,24 +761,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Properties Panel ---
     function renderProperties(el) {
-        propertiesPanel.innerHTML = '';
-        if (!el) {
-            propertiesPanel.innerHTML = '<div class="empty-state">Select an element to edit properties</div>';
-            return;
-        }
-
-        let template = null;
-        if (el.type === 'symbol') template = symbolPropsTemplate;
-        else if (el.type === 'static-text') template = textPropsTemplate;
-        else if (el.type === 'static-line') template = linePropsTemplate;
-        else if (el.type === 'static-arrow') template = linePropsTemplate;
-
-        if (template) {
-            const clone = template.content.cloneNode(true);
-            propertiesPanel.appendChild(clone);
-            bindProperties(el);
-        }
+    propertiesPanel.innerHTML = '';
+    if (!el) {
+        propertiesPanel.innerHTML = '<div class="empty-state">Select an element to edit properties</div>';
+        return;
     }
+
+    let template = null;
+    if (el.type === 'symbol') template = symbolPropsTemplate;
+    else if (el.type === 'static-text') template = textPropsTemplate;
+    else if (el.type === 'static-line') template = linePropsTemplate;
+    else if (el.type === 'static-arrow') template = linePropsTemplate;
+    else if (el.type === 'static-rect') template = document.getElementById('rect-props-template');
+
+    if (template) {
+        const clone = template.content.cloneNode(true);
+        propertiesPanel.appendChild(clone);
+        bindProperties(el);
+    }
+}
 
     function bindProperties(el) {
         const inputs = propertiesPanel.querySelectorAll('[data-prop]');
@@ -620,6 +846,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Delete Button
+        const delBtn = propertiesPanel.querySelector('[data-action="delete"]');
         if (delBtn) {
             delBtn.addEventListener('click', deleteSelectedElements);
         }
