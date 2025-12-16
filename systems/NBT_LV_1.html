@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LVBB</title>
+    <style>
+        body { margin: 0; padding: 0; background: #ffffff; overflow: hidden; font-family: 'Segoe UI', sans-serif; user-select: none; }
+        .symbol-container { position: absolute; }
+        .pump-container, .pit-container, .selector-container, .ai_textb-container, .tfan-container, .CB-container { cursor: pointer; }
+        
+        #mimic-container { position:relative; width:100%; height:100%; }
+        
+</style>
+</head>
+<body>
+    <div id="mimic-container"><div style="position: absolute; left: 432px; top: 303px; text-align: center;" data-equipment="CB001" data-location="NBT" data-system="LV"><div id="sym_1" class="CB-container"></div></div></div>
+    <script>
+        const LOC = "NBT";
+        const SYS = "LV";
+
+        const config = {
+            pits: [],
+    pumps: [],
+    ai_textb: [],
+    tfans: [],
+    selectors: [] ,
+    cbs: [{"id":"sym_1","equipKey":"NBT-LV-CB-001","loc":"NBT","faceplate":"NBT-LV-CB-001"}],
+};
+
+window.SCADA = window.parent.SCADA;
+const Core = window.SCADA.Core;
+const Symbols = window.SCADA.Symbols;
+
+function registerInitialHighlights() {
+    if (!Core.Highlight) return;
+    const mapId = id => document.getElementById(id);
+    
+    
+    
+    
+    
+    
+    if(mapId('sym_1')) Core.Highlight.register('NBT-LV-CB001', mapId('sym_1'));
+
+    Core.Highlight.equipIfPending();
+}
+
+function safeInit() {
+    const checkExist = () => {
+        const ready =
+            (!config.pumps.length || document.getElementById(config.pumps[0]?.id)) &&
+            (!config.pits.length || document.getElementById(config.pits[0]?.id)) &&
+            (!config.ai_textb.length || document.getElementById(config.ai_textb[0]?.id)) &&
+            (!config.tfans.length || document.getElementById(config.tfans[0]?.id)) &&
+            (!config.selectors.length || document.getElementById(config.selectors[0]?.id)) &&
+            (!config.cbs.length || document.getElementById(config.cbs[0]?.id));
+
+        if (ready) { initSymbols(); } else { setTimeout(checkExist, 50); }
+    };
+    checkExist();
+}
+
+if (document.readyState === "complete") { safeInit(); } else { window.addEventListener("load", safeInit); }
+
+function refreshLV (pumps, pits, aiSymbols, tfanSymbols, selectorSymbols, cbSymbols, PanelMode, PanelRemote, data, alarms) {
+    if (!data || !alarms) return;
+    try {
+        config.cbs?.forEach((pConf, i) => {
+            if (cbSymbols[i]) {
+                const symLoc = pConf.loc || LOC;
+                const cls = cbSymbols[i].getVisualClass(data, alarms, symLoc);
+                cbSymbols[i].update(cls.visualClass);
+                cbSymbols[i].showOverride(cls.override);
+            }
+        });
+        config.pits.forEach((pConf, i) => {
+            if (pits[i]) {
+                const symLoc = pConf.loc || LOC;
+                const cls = pits[i].getVisualClass(data, alarms, symLoc);
+                pits[i].update(cls.pct, cls.visualClass);
+                pits[i].showOverride(cls.override);
+            }
+        });
+        config.pumps.forEach((pConf, i) => {
+            if (pumps[i]) {
+                const symLoc = pConf.loc || LOC;
+                const cls = pumps[i].getVisualClass(data, alarms, symLoc);
+                pumps[i].update(cls.visualClass);
+                pumps[i].showOverride((cls.run?.mo_i) || (cls.trip?.mo_i));
+            }
+        });
+        config.ai_textb?.forEach((pConf, i) => {
+            if (aiSymbols[i]) {
+                const symLoc = pConf.loc || LOC;
+                const cls = aiSymbols[i].getVisualClass(data, alarms, symLoc);
+                if (cls.value !== null) {
+                    aiSymbols[i].update(cls.value, cls.limits, cls.decimals, cls.flash);
+                    aiSymbols[i].showOverride(cls.override);
+                }
+            }
+        });
+        config.tfans?.forEach((pConf, i) => {
+            if (tfanSymbols[i]) {
+                const symLoc = pConf.loc || LOC;
+                const cls = tfanSymbols[i].getVisualClass(data, alarms, symLoc);
+                tfanSymbols[i].update(cls.visualClass);
+                tfanSymbols[i].showOverride((cls.run?.mo_i) || (cls.trip?.mo_i) || (cls.mode?.mo_i) || (cls.dir?.mo_i));
+            }
+        });
+        config.selectors?.forEach((sConf, i) => {
+            if (selectorSymbols[i]) {
+                const tagSuffix = sConf.type === 'mode' ? 'Panel.Mode' : 'Panel.LocalRemote';
+                const symLoc = sConf.loc || LOC;
+                const cls = selectorSymbols[i].getVisualClass(data, symLoc, tagSuffix);
+                if (cls.state) selectorSymbols[i].update(cls.state);
+                selectorSymbols[i].showOverride(cls.override);
+            }
+        });
+    } catch (err) { console.error("Error in refreshLV:", err); }
+}
+
+function initSymbols() {
+    const initTasks = [];
+
+    
+
+    
+
+    const aiSymbols = [];
+    
+
+    const tfanSymbols = [];
+    
+
+    const selectorSymbols = [];
+    
+
+    console.log("Initializing CBs:", config.cbs.length);
+    const cbTasks = config.cbs.map(c => Symbols.CB.init(c.id, { equipKey: c.equipKey, loc: c.loc, faceplate: c.faceplate, doc: document }));
+    initTasks.push(...cbTasks);
+
+    Promise.all(initTasks).then(symbols => {
+        let offset = 0;
+        const pumpSymbols = symbols.slice(offset, offset + 0); offset += 0;
+        const pitSymbols = symbols.slice(offset, offset + 0); offset += 0;
+        const aiSyms = symbols.slice(offset, offset + 0); offset += 0;
+        const tfanSyms = symbols.slice(offset, offset + 0); offset += 0;
+        const selSyms = symbols.slice(offset, offset + 0); offset += 0;
+        const cbSyms = symbols.slice(offset, offset + 1); // Correct offset
+
+        const PanelMode = { getVisualClass: () => ({}), update: () => { }, showOverride: () => { } };
+        const PanelRemote = { getVisualClass: () => ({}), update: () => { }, showOverride: () => { } };
+
+        if (Core.Highlight) {
+            registerInitialHighlights();
+            Core.Highlight.equipIfPending();
+        }
+
+        const sm = SCADA?.Core?.SocketManager;
+        if (sm) {
+            let cachedPoints = {};
+            let cachedAlarms = [];
+
+            const handleSystemUpdate = (msg) => {
+                if (msg.alarms) {
+                    cachedAlarms = Array.isArray(msg.alarms) ? msg.alarms : Object.values(msg.alarms);
+                    if (msg.type === 'alarms' || msg.type === 'alarm') {
+                        const data = { points: Object.values(cachedPoints) };
+              refreshLV (pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, cbSyms, PanelMode, PanelRemote, data, cachedAlarms);
+                        return;
+                    }
+                }
+
+                if (msg.type === 'snapshot' && msg.points) {
+                    Object.assign(cachedPoints, msg.points);
+                    const data = { points: Object.values(cachedPoints) };
+            refreshLV (pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, cbSyms, PanelMode, PanelRemote, data, cachedAlarms);
+                }
+                else if (msg.type === 'update' && msg.diffs?.points) {
+                    if (msg.diffs.points.changed) Object.assign(cachedPoints, msg.diffs.points.changed);
+                    if (msg.diffs.points.removed) msg.diffs.points.removed.forEach(key => delete cachedPoints[key]);
+
+                    const data = { points: Object.values(cachedPoints) };
+            refreshLV (pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, cbSyms, PanelMode, PanelRemote, data, cachedAlarms);
+                }
+            };
+
+        sm.subscribe('system:NBT', handleSystemUpdate);
+
+            sm.subscribe('alarms', handleSystemUpdate);
+
+            const scope = 'system: ' + LOC;
+            sm.subscribe(scope, handleSystemUpdate);
+
+            window.addEventListener('beforeunload', () => {
+                try {
+             sm.unsubscribe('system:NBT', handleSystemUpdate);
+                    sm.unsubscribe('alarms', handleSystemUpdate);
+                    sm.unsubscribe('events', handleSystemUpdate);
+                } catch (e) { }
+            });
+        }
+    });
+
+    console.log("✅ Mimic loaded");
+    if (window.parent) { window.parent.postMessage({ type: "mimicReady" }, "*"); }
+}
+</script>
+</body>
+</html>

@@ -529,3 +529,6 @@ body {
     transform: translateY(-50%);
     cursor: ew-resize;
 }
+/* Drag and Drop Visuals */
+.nav-item.dragging { opacity: 0.5; background: #eef; }
+.nav-item.drag-over { border-top: 2px solid #007bff; background: #f0f8ff; }

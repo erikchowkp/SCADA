@@ -218,13 +218,17 @@ function updateAlarmsFromPoint(pt, value) {
   let state = String(value);
   let crit = 0;
   if (value === 0 && "state0" in pt) { state = pt.state0; crit = pt.crit0 ?? 0; }
-  if (value === 1 && "state1" in pt) { state = pt.state1; crit = pt.crit1 ?? 0; }
+  else if (value === 1 && "state1" in pt) { state = pt.state1; crit = pt.crit1 ?? 0; }
+  else if (value === 2 && "state2" in pt) { state = pt.state2; crit = pt.crit2 ?? 0; }
+  else if (value === 3 && "state3" in pt) { state = pt.state3; crit = pt.crit3 ?? 0; }
 
   // Skip points only if truly no alarm or analogue threshold data
   if (
     (pt.signalType !== "AI") &&
     (pt.crit0 ?? 0) === 0 &&
-    (pt.crit1 ?? 0) === 0
+    (pt.crit1 ?? 0) === 0 &&
+    (pt.crit2 ?? 0) === 0 &&
+    (pt.crit3 ?? 0) === 0
   ) {
     return;
   }
@@ -387,11 +391,15 @@ function syncPlcToScada() {
           const state =
             nextVal === 1 && "state1" in sPt ? sPt.state1 :
               nextVal === 0 && "state0" in sPt ? sPt.state0 :
-                String(nextVal);
+                nextVal === 2 && "state2" in sPt ? sPt.state2 :
+                  nextVal === 3 && "state3" in sPt ? sPt.state3 :
+                    String(nextVal);
 
           const crit =
             nextVal === 1 && "crit1" in sPt ? sPt.crit1 :
-              nextVal === 0 && "crit0" in sPt ? sPt.crit0 : 0;
+              nextVal === 0 && "crit0" in sPt ? sPt.crit0 :
+                nextVal === 2 && "crit2" in sPt ? sPt.crit2 :
+                  nextVal === 3 && "crit3" in sPt ? sPt.crit3 : 0;
 
           const ev = {
             ts: sPt.ts,

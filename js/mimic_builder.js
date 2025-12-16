@@ -167,7 +167,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 text: 'New Text',
                 fontSize: 12,
                 color: '#000000',
-                fontWeight: 'normal'
+                fontWeight: 'normal',
+                backgroundColor: '#ffffff',
+                bgOpacity: 0,
+                borderColor: '#000000',
+                borderWidth: 0
             };
         } else if (item.type === 'static-line') {
             el.props = {
@@ -226,6 +230,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
+
+
+
+
+
     function renderCanvas() {
         canvas.innerHTML = '';
         canvasElements.forEach(el => {
@@ -280,6 +289,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 div.style.color = el.props.color;
                 div.style.fontWeight = el.props.fontWeight;
                 div.style.whiteSpace = 'nowrap';
+                // Background Color & Opacity
+                const opacity = el.props.bgOpacity !== undefined ? parseFloat(el.props.bgOpacity) : 0;
+                if (opacity > 0) {
+                    const hex = el.props.backgroundColor || '#ffffff';
+                    const r = parseInt(hex.substring(1, 3), 16);
+                    const g = parseInt(hex.substring(3, 5), 16);
+                    const b = parseInt(hex.substring(5, 7), 16);
+                    div.style.backgroundColor = `rgba(${r},${g},${b},${opacity})`;
+                } else {
+                    div.style.backgroundColor = 'transparent';
+                }
+
+                // Border
+                if (el.props.borderWidth > 0) {
+                    div.style.border = `${el.props.borderWidth}px solid ${el.props.borderColor || '#000'}`;
+                    div.style.padding = '4px';
+                } else {
+                    div.style.border = 'none';
+                    div.style.padding = '0';
+                }
             } else if (el.type === 'static-line') {
                 div.style.width = el.props.width + 'px';
                 div.style.height = el.props.height + 'px';
@@ -305,7 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 div.style.width = el.props.width + 'px';
                 div.style.height = el.props.height + 'px';
                 div.style.backgroundColor = el.props.backgroundColor;
-                div.style.border = `${el.props.borderWidth || 1}px solid ${el.props.borderColor || '#000'}`;
+                div.style.border = `${el.props.borderWidth || 1}px solid ${el.props.borderColor || '#000'} `;
                 div.style.transform = `rotate(${el.props.rotation}deg)`;
             }
 
@@ -462,8 +491,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('mouseup', onMouseUp);
     }
 
-        function startResizingElement(e, el) {
-        e.stopPropagation(); 
+    function startResizingElement(e, el) {
+        e.stopPropagation();
         const handleType = e.target.dataset.handle; // start, end, nw, ne, se, sw, n, s, e, w
 
         // Initial Properties
@@ -480,7 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Calculate End Point
             const originalEndX = originalX + originalW * Math.cos(rotRad);
             const originalEndY = originalY + originalW * Math.sin(rotRad);
-            
+
             // Anchor
             const anchorX = isStartHandle ? originalEndX : originalX;
             const anchorY = isStartHandle ? originalEndY : originalY;
@@ -491,26 +520,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rect = canvas.getBoundingClientRect();
                 const mx = e.clientX - rect.left - canvas.scrollLeft;
                 const my = e.clientY - rect.top - canvas.scrollTop;
-                
+
                 const dx = mx - anchorX;
                 const dy = my - anchorY;
-                const newDist = Math.sqrt(dx*dx + dy*dy);
-                
+                const newDist = Math.sqrt(dx * dx + dy * dy);
+
                 el.props.width = Math.max(10, newDist);
 
                 let angleRad;
                 if (isStartHandle) {
-                     angleRad = Math.atan2(anchorY - my, anchorX - mx);
-                     el.x = mx;
-                     el.y = my;
+                    angleRad = Math.atan2(anchorY - my, anchorX - mx);
+                    el.x = mx;
+                    el.y = my;
                 } else {
-                     angleRad = Math.atan2(dy, dx);
+                    angleRad = Math.atan2(dy, dx);
                 }
                 el.props.rotation = angleRad * (180 / Math.PI);
-                
+
                 updateDOM(el);
             }
-            
+
             function onLineUp() {
                 document.body.style.cursor = '';
                 document.removeEventListener('mousemove', onLineMove);
@@ -524,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Logic for Rectangles (8 Points) ---
         const cx = originalX + originalW / 2;
         const cy = originalY + originalH / 2;
-        
+
         // Initial Local Bounds
         const bounds = {
             left: -originalW / 2,
@@ -547,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (moveBottom && moveRight) cursor = 'nwse-resize';
         else if (moveTop || moveBottom) cursor = 'ns-resize';
         else if (moveLeft || moveRight) cursor = 'ew-resize';
-        
+
         document.body.style.cursor = cursor;
 
         function onRectMove(e) {
@@ -560,7 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const dy = my - cy;
             const cos = Math.cos(-rotRad);
             const sin = Math.sin(-rotRad);
-            const mx_local = (dx * cos - dy * sin); 
+            const mx_local = (dx * cos - dy * sin);
             const my_local = (dx * sin + dy * cos);
 
             // 2. Update Bounds based on active handle
@@ -589,7 +618,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 5. Update Props
             el.props.width = newW;
             el.props.height = newH;
-            
+
             // 6. Update Position (Top-Left of unrotated box)
             el.x = finalCx - newW / 2;
             el.y = finalCy - newH / 2;
@@ -761,25 +790,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Properties Panel ---
     function renderProperties(el) {
-    propertiesPanel.innerHTML = '';
-    if (!el) {
-        propertiesPanel.innerHTML = '<div class="empty-state">Select an element to edit properties</div>';
-        return;
-    }
+        propertiesPanel.innerHTML = '';
+        if (!el) {
+            propertiesPanel.innerHTML = '<div class="empty-state">Select an element to edit properties</div>';
+            return;
+        }
 
-    let template = null;
-    if (el.type === 'symbol') template = symbolPropsTemplate;
-    else if (el.type === 'static-text') template = textPropsTemplate;
-    else if (el.type === 'static-line') template = linePropsTemplate;
-    else if (el.type === 'static-arrow') template = linePropsTemplate;
-    else if (el.type === 'static-rect') template = document.getElementById('rect-props-template');
+        let template = null;
+        if (el.type === 'symbol') template = symbolPropsTemplate;
+        else if (el.type === 'static-text') template = textPropsTemplate;
+        else if (el.type === 'static-line') template = linePropsTemplate;
+        else if (el.type === 'static-arrow') template = linePropsTemplate;
+        else if (el.type === 'static-rect') template = document.getElementById('rect-props-template');
 
-    if (template) {
-        const clone = template.content.cloneNode(true);
-        propertiesPanel.appendChild(clone);
-        bindProperties(el);
+        if (template) {
+            const clone = template.content.cloneNode(true);
+            propertiesPanel.appendChild(clone);
+            bindProperties(el);
+        }
     }
-}
 
     function bindProperties(el) {
         const inputs = propertiesPanel.querySelectorAll('[data-prop]');
@@ -854,14 +883,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function deleteSelectedElements() {
         if (selectedElements.length === 0) return;
-
-        // Confirmation for multiple items
         if (selectedElements.length > 1) {
-            if (!confirm(`Are you sure you want to delete ${selectedElements.length} items?`)) {
+            if (!confirm(`Are you sure you want to delete ${selectedElements.length} items ? `)) {
                 return;
             }
         }
-
         canvasElements = canvasElements.filter(e => !selectedElements.includes(e));
         selectedElements = [];
         renderCanvas();
@@ -870,38 +896,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Keyboard Interaction ---
     document.addEventListener('keydown', (e) => {
-        // Only Delete key (User explicitly requested "just delete button, no backspace")
         if (e.key === 'Delete') {
-            // Avoid deleting if user is typing in an input
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
             deleteSelectedElements();
         }
-
-        // Arrow Keys for Nudging
         if (selectedElements.length > 0 && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-            // Prevent scrolling
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             e.preventDefault();
-
-            // Delta: 1px normal, 10px with Shift
             const delta = e.shiftKey ? 10 : 1;
-
             selectedElements.forEach(el => {
-                let dx = 0; let dy = 0;
-                if (e.key === 'ArrowLeft') dx = -delta;
-                if (e.key === 'ArrowRight') dx = delta;
-                if (e.key === 'ArrowUp') dy = -delta;
-                if (e.key === 'ArrowDown') dy = delta;
-
-                el.x += dx;
-                el.y += dy;
-
-                // Update DOM directly for performance
-                const div = document.getElementById(el.id);
-                if (div) {
-                    div.style.left = el.x + 'px';
-                    div.style.top = el.y + 'px';
-                }
+                if (e.key === 'ArrowLeft') el.x -= delta;
+                if (e.key === 'ArrowRight') el.x += delta;
+                if (e.key === 'ArrowUp') el.y -= delta;
+                if (e.key === 'ArrowDown') el.y += delta;
+                updateDOM(el);
             });
         }
     });
@@ -919,51 +927,31 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`/api/dev/systems/${el.props.system}`);
             if (res.ok) {
                 const data = await res.json();
-
-                // Group by Equipment Label (e.g. SUP001)
                 const equipment = new Set();
                 data.points.forEach(pt => {
                     if (pt.label) equipment.add(pt.label);
                     else if (pt.equipType && pt.equipId) equipment.add(pt.equipType + pt.equipId);
                 });
-
-                const sortedEquip = Array.from(equipment).sort();
-
-                sortedEquip.forEach(eq => {
+                Array.from(equipment).sort().forEach(eq => {
                     const opt = document.createElement('option');
-                    opt.value = eq;
-                    opt.text = eq;
+                    opt.value = eq; opt.text = eq;
                     equipSelect.appendChild(opt);
                 });
-
                 equipSelect.disabled = false;
                 equipSelect.value = el.props.equip || '';
             }
-        } catch (e) {
-            console.error("Failed to load system points:", e);
-        }
+        } catch (e) { console.error("Failed to load system points:", e); }
     }
 
     function updateTagPreview(el) {
         const preview = propertiesPanel.querySelector('[data-prop="tagPreview"]');
         if (!preview) return;
-
         let tag = el.props.equip || '-';
-
-        // Special handling for selectors to preserve suffix
-        if (el.props.symbol === 'selector') {
+        if (el.props.symbol === 'selector' || el.props.symbol === 'selector-mode' || el.props.symbol === 'selector-remote') {
             const isMode = el.props.tag && el.props.tag.includes('Mode');
             const suffix = isMode ? 'Panel.Mode' : 'Panel.LocalRemote';
-            // If equip is present, tag = equip + suffix? 
-            // Or usually tag IS the suffix for these?
-            // Let's assume tag = equip + '.' + suffix if equip exists
-            if (el.props.equip) {
-                tag = `${el.props.equip}.${suffix}`;
-            } else {
-                tag = suffix;
-            }
+            tag = el.props.equip ? `${el.props.equip}.${suffix} ` : suffix;
         }
-
         preview.innerText = tag;
         el.props.tag = tag;
     }
@@ -972,259 +960,168 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleSaveClick() {
         const loc = pageLocInput.value.trim();
         const sys = pageSysInput.value.trim();
-
-        if (!loc || !sys) {
-            alert("Please enter Location and System codes.");
-            return;
-        }
-
-        if (currentFilename) {
-            // Edit Mode: Save directly
-            await performSave(currentFilename);
-        } else {
-            // New Mode: Open Modal
-            openSaveModal(loc, sys);
-        }
+        if (!loc || !sys) { alert("Please enter Location and System codes."); return; }
+        if (currentFilename) await performSave(currentFilename);
+        else openSaveModal(loc, sys);
     }
 
     async function performSave(filename) {
         const loc = pageLocInput.value.trim();
         const sys = pageSysInput.value.trim();
         const title = pageTitleInput.value.trim();
-
-        // 1. Generate HTML Content (Updated with zoom parameters)
         const htmlContent = generateHTML(loc, sys, title, canvasWidth, canvasHeight, currentBackground);
-
         try {
             const res = await fetch('/api/dev/mimic', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    filename: filename,
-                    content: htmlContent,
-                    overwrite: true
-                })
+                body: JSON.stringify({ filename, content: htmlContent, overwrite: true })
             });
-
             if (res.ok) {
                 alert("Mimic saved successfully!");
-                // Update state
                 currentFilename = filename;
                 updateEditorState();
-
-                // Also update title in mimic_titles.json if title provided
-                if (title) {
-                    await saveTitle(filename, title);
-
-                    // Sync to Navigation Data
-                    if (navData && navData.locations) {
-                        let found = false;
-                        navData.locations.forEach(l => {
-                            if (found) return;
-                            l.systems.forEach(s => {
-                                if (found) return;
-                                const page = s.pages.find(p => p.file === filename);
-                                if (page) {
-                                    page.title = title;
-                                    found = true;
-                                }
-                            });
-                        });
-
-                        if (found) {
-                            await fetch('/api/dev/navigation', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(navData)
-                            });
-                        }
-                    }
-                }
-            } else {
-                alert("Failed to save mimic.");
-            }
-        } catch (e) {
-            console.error("Save error:", e);
-            alert("Error saving mimic.");
-        }
+                if (title) await saveTitle(filename, title);
+            } else { alert("Failed to save mimic."); }
+        } catch (e) { console.error("Save error:", e); alert("Error saving mimic."); }
     }
 
     async function openSaveModal(loc, sys) {
         const modal = document.getElementById('saveModal');
         const list = document.getElementById('saveFileList');
         const input = document.getElementById('saveFilenameInput');
-
         modal.style.display = 'block';
         list.innerHTML = '<div class="loading">Loading existing files...</div>';
-
-        // Fetch existing files to recommend name
         try {
             const res = await fetch('/api/dev/mimic_files');
             const allFiles = await res.json();
-
-            // Filter by prefix
             const prefix = `${loc}_${sys}`;
-            let existingFiles = allFiles.filter(f => f.startsWith(prefix));
+            // Match files like LOC_SYS.html or LOC_SYS_1.html, etc.
+            // But user wants explicit numbering logic: "if first file, number should be 1" -> LOC_SYS_1.html
+            // So we look for pattern: prefix + "_x.html"
 
-            // Render list
+            const existingFiles = allFiles.filter(f => f.startsWith(prefix));
             list.innerHTML = '';
-            if (existingFiles.length === 0) {
-                list.innerHTML = '<div style="padding:5px; color:#888;">No existing pages found in directory.</div>';
-            } else {
-                existingFiles.forEach(f => {
-                    const div = document.createElement('div');
-                    div.className = 'file-item';
-                    div.innerText = f;
-                    list.appendChild(div);
-                });
-            }
 
-            // Recommend Name
-            // Pattern: LOC_SYS.html, LOC_SYS_1.html ...
-            const base = `${loc}_${sys}`;
-            // Regex matches LOC_SYS.html or LOC_SYS_N.html
-            const regex = new RegExp(`^${base}(?:_(\\d+))?\\.html$`, 'i');
-
-            let maxNum = 0;
-            let foundBase = false;
-            let hasNumbered = false;
+            let maxIndex = 0;
+            const regex = new RegExp(`^${prefix}_(\\d+)\\.html$`);
 
             existingFiles.forEach(f => {
-                const match = f.match(regex);
-                if (match) {
-                    if (match[1]) {
-                        const num = parseInt(match[1]);
-                        if (num > maxNum) maxNum = num;
-                        hasNumbered = true;
-                    } else {
-                        foundBase = true;
-                    }
+                const div = document.createElement('div');
+                div.className = 'file-item'; div.innerText = f;
+                list.appendChild(div);
+
+                const m = f.match(regex);
+                if (m) {
+                    const idx = parseInt(m[1], 10);
+                    if (idx > maxIndex) maxIndex = idx;
                 }
             });
 
-            let name;
-            if (hasNumbered) {
-                name = `${base}_${maxNum + 1}.html`;
-            } else if (foundBase) {
-                name = `${base}_1.html`;
-            } else {
-                name = `${base}.html`;
-            }
+            const nextIndex = maxIndex + 1;
+            input.value = `${prefix}_${nextIndex}.html`;
 
-            input.value = name;
-
-        } catch (e) {
-            console.error("Error preparing save modal:", e);
-            list.innerHTML = 'Error loading list.';
-        }
+        } catch (e) { list.innerHTML = 'Error loading list.'; }
     }
 
     async function saveTitle(filename, title) {
         try {
-            // Strip extension for saving title
             const key = filename.replace('.html', '');
             await fetch('/api/dev/titles', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key: key, value: title })
+                body: JSON.stringify({ key, value: title })
             });
-        } catch (e) {
-            console.error("Failed to save title:", e);
-        }
+        } catch (e) { console.error("Failed to save title:", e); }
     }
 
-
     function generateHTML(loc, sys, title, width = 1200, height = 800, backgroundImage = null) {
-        // Use global state for width/height/background if available, or defaults
         const w = (typeof canvasWidth !== 'undefined') ? canvasWidth : width;
         const h = (typeof canvasHeight !== 'undefined') ? canvasHeight : height;
         const bg = (typeof currentBackground !== 'undefined') ? currentBackground : backgroundImage;
+        const hasBackground = bg && bg.trim().length > 0;
 
-        // Construct the full HTML for the mimic page
         let elementsHTML = '';
-
-        // Group elements by type for config generation
         const pumps = [];
         const pits = [];
         const ai_textb = [];
         const tfans = [];
         const selectors = [];
-
+        const cbs = [];
         const usedIds = new Set();
 
         canvasElements.forEach((el, index) => {
             if (el.type === 'symbol') {
-                const type = el.props.symbol;
-                let domId = el.props.id || `${type}${index + 1}`;
-
-                // Ensure uniqueness
+                const type = el.props.symbol === 'selector-mode' || el.props.symbol === 'selector-remote' ? 'selector' : el.props.symbol;
+                let domId = el.props.id || `${type}${index + 1} `;
                 let originalId = domId;
                 let counter = 1;
-                while (usedIds.has(domId)) {
-                    domId = `${originalId}_${counter}`;
-                    counter++;
-                }
+                while (usedIds.has(domId)) { domId = `${originalId}_${counter} `; counter++; }
                 usedIds.add(domId);
 
-                // Loc/Sys overrides
                 const sLoc = el.props.location || '';
                 const sSys = el.props.system || '';
+                const equip = el.props.equip || '';
 
-                // Add to config arrays
-                if (type === 'pump') pumps.push({ domId, equip: el.props.equip, loc: sLoc, sys: sSys });
-                else if (type === 'pit') pits.push({ domId, equip: el.props.equip, loc: sLoc, sys: sSys });
-                else if (type === 'ai_textb') ai_textb.push({ domId, equip: el.props.equip, loc: sLoc, sys: sSys });
-                else if (type === 'tfan') tfans.push({ domId, equip: el.props.equip, loc: sLoc, sys: sSys });
-                else if (type.includes('selector')) {
+                if (type === 'pump') pumps.push({ domId, equip, loc: sLoc, sys: sSys });
+                else if (type === 'pit') pits.push({ domId, equip, loc: sLoc, sys: sSys });
+                else if (type === 'ai_textb') ai_textb.push({ domId, equip, loc: sLoc, sys: sSys });
+                else if (type === 'tfan') tfans.push({ domId, equip, loc: sLoc, sys: sSys });
+                else if (type === 'selector') {
                     const isMode = (el.props.tag && el.props.tag.includes('Mode')) || (el.props.symbol === 'selector-mode');
-                    selectors.push({ domId, equip: el.props.equip, type: isMode ? 'mode' : 'remote', loc: sLoc, sys: sSys });
+                    selectors.push({ domId, equip, type: isMode ? 'mode' : 'remote', loc: sLoc, sys: sSys });
+                } else if (type === 'CB') {
+                    cbs.push({ domId, equip, loc: sLoc, sys: sSys });
                 }
 
-                elementsHTML += `
-    <div style="position: absolute; left: ${el.x}px; top: ${el.y}px; text-align: center;" data-equipment="${el.props.equip}" data-location="${sLoc}" data-system="${sSys}">
-        <div id="${domId}" class="${type.includes('selector') ? 'selector' : type}-container"></div>
-    </div>
-`;
+                elementsHTML += `<div style="position: absolute; left: ${el.x}px; top: ${el.y}px; text-align: center;" data-equipment="${equip}" data-location="${sLoc}" data-system="${sSys}"><div id="${domId}" class="${type}-container"></div></div>`;
             } else if (el.type === 'static-text') {
-                elementsHTML += `
-    <div style="position:absolute; left:${el.x}px; top:${el.y}px; font-size:${el.props.fontSize}px; color:${el.props.color}; font-weight:${el.props.fontWeight}; white-space:nowrap;">
-        ${el.props.text}
-    </div>
-`;
-            } else if (el.type === 'static-line') {
-                elementsHTML += `
-    <div style="position:absolute; left:${el.x}px; top:${el.y}px; width:${el.props.width}px; height:${el.props.height}px; background-color:${el.props.backgroundColor}; transform:rotate(${el.props.rotation}deg); transform-origin:0 0;"></div>
-`;
-            } else if (el.type === 'static-arrow') {
-                elementsHTML += `
-    <div style="position:absolute; left:${el.x}px; top:${el.y}px; width:${el.props.width}px; height:${el.props.height}px; background-color:${el.props.backgroundColor}; transform:rotate(${el.props.rotation}deg); transform-origin:center;">
-        <div style="position: absolute; right: -6px; top: 50%; transform: translateY(-50%); border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid ${el.props.backgroundColor};"></div>
-    </div>
-`;
+                let bgStyle = 'background-color:transparent;';
+                const opacity = el.props.bgOpacity !== undefined ? parseFloat(el.props.bgOpacity) : 0;
+                if (opacity > 0) {
+                    const hex = el.props.backgroundColor || '#ffffff';
+                    const r = parseInt(hex.substring(1, 3), 16);
+                    const g = parseInt(hex.substring(3, 5), 16);
+                    const b = parseInt(hex.substring(5, 7), 16);
+                    bgStyle = `background-color:rgba(${r},${g},${b},${opacity});`;
+                }
+
+                let borderStyle = 'border:none; padding:0;';
+                if (el.props.borderWidth > 0) {
+                    borderStyle = `border:${el.props.borderWidth}px solid ${el.props.borderColor || '#000'}; padding:4px;`;
+                }
+
+                elementsHTML += `<div style="position:absolute; left:${el.x}px; top:${el.y}px; font-size:${el.props.fontSize}px; color:${el.props.color}; font-weight:${el.props.fontWeight}; white-space:nowrap; ${bgStyle} ${borderStyle}">${el.props.text}</div>`;
+            } else if (el.type === 'static-line' || el.type === 'static-arrow') {
+                const arrow = el.type === 'static-arrow' ? `<div style="position: absolute; right: -6px; top: 50%; transform: translateY(-50%); border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid ${el.props.backgroundColor};"></div>` : '';
+                elementsHTML += `<div style="position:absolute; left:${el.x}px; top:${el.y}px; width:${el.props.width}px; height:${el.props.height}px; background-color:${el.props.backgroundColor}; transform:rotate(${el.props.rotation}deg); transform-origin:center;">${arrow}</div>`;
+            } else if (el.type === 'static-rect') {
+                elementsHTML += `<div style="position:absolute; left:${el.x}px; top:${el.y}px; width:${el.props.width}px; height:${el.props.height}px; background-color:${el.props.backgroundColor}; border:${el.props.borderWidth}px solid ${el.props.borderColor}; transform:rotate(${el.props.rotation}deg);"></div>`;
             }
         });
 
-        // Determine if we need zoom
-        const hasBackground = bg && bg.trim().length > 0;
-
-        // Generate Script Content
         const scriptContent = `
-  const LOC = "${loc}";
-  const SYS = "${sys}";
+        const LOC = "${loc}";
+        const SYS = "${sys}";
 
-  const config = {
-    pits: ${JSON.stringify(pits.map(p => ({ id: p.domId, equipment: p.equip, loc: p.loc, sys: p.sys })))},
+        const config = {
+            pits: ${JSON.stringify(pits.map(p => ({ id: p.domId, equipment: p.equip, loc: p.loc, sys: p.sys })))
+            },
     pumps: ${JSON.stringify(pumps.map(p => ({ id: p.domId, equipment: p.equip, loc: p.loc, sys: p.sys })))},
     ai_textb: ${JSON.stringify(ai_textb.map(p => ({ id: p.domId, equipment: p.equip, loc: p.loc, sys: p.sys })))},
     tfans: ${JSON.stringify(tfans.map(p => ({ id: p.domId, equipment: p.equip, loc: p.loc, sys: p.sys })))},
-    selectors: ${JSON.stringify(selectors.map(s => ({ id: s.domId, equipment: s.equip, type: s.type, loc: s.loc, sys: s.sys })))}
-  };
+    selectors: ${JSON.stringify(selectors.map(s => ({ id: s.domId, equipment: s.equip, type: s.type, loc: s.loc, sys: s.sys })))} ,
+    cbs: ${JSON.stringify(cbs.map(p => {
+                let eq = p.equip;
+                if (eq && /^CB\d+$/i.test(eq)) { eq = eq.replace(/^(CB)(\d+)$/i, "$1-$2"); }
+                return { id: p.domId, equipKey: (p.loc || loc) + '-' + (p.sys || sys) + '-' + eq, loc: p.loc, faceplate: (p.loc || loc) + '-' + (p.sys || sys) + '-' + eq };
+            }))},
+};
 
-  window.SCADA = window.parent.SCADA;
-  const Core = window.SCADA.Core;
-  const Symbols = window.SCADA.Symbols;
+window.SCADA = window.parent.SCADA;
+const Core = window.SCADA.Core;
+const Symbols = window.SCADA.Symbols;
 
-  function registerInitialHighlights() {
+function registerInitialHighlights() {
     if (!Core.Highlight) return;
     const mapId = id => document.getElementById(id);
     
@@ -1233,77 +1130,86 @@ document.addEventListener('DOMContentLoaded', () => {
     ${ai_textb.map(p => `if(mapId('${p.domId}')) Core.Highlight.register('${p.loc || loc}-${p.sys || sys}-${p.equip}', mapId('${p.domId}'));`).join('\n    ')}
     ${tfans.map(p => `if(mapId('${p.domId}')) Core.Highlight.register('${p.loc || loc}-${p.sys || sys}-${p.equip}', mapId('${p.domId}'));`).join('\n    ')}
     ${selectors.map(s => `if(mapId('${s.domId}')) Core.Highlight.register('${s.loc || loc}-${s.sys || sys}-${s.equipment}', mapId('${s.domId}'));`).join('\n    ')}
-    
-    Core.Highlight.equipIfPending();
-  }
+    ${cbs.map(p => `if(mapId('${p.domId}')) Core.Highlight.register('${p.loc || loc}-${p.sys || sys}-${p.equip}', mapId('${p.domId}'));`).join('\n    ')}
 
-  function safeInit() {
+    Core.Highlight.equipIfPending();
+}
+
+function safeInit() {
     const checkExist = () => {
-      const ready = 
-        (!config.pumps.length || document.getElementById("${pumps[0]?.domId}")) &&
-        (!config.pits.length || document.getElementById("${pits[0]?.domId}")) &&
-        (!config.ai_textb.length || document.getElementById("${ai_textb[0]?.domId}")) &&
-        (!config.tfans.length || document.getElementById("${tfans[0]?.domId}")) &&
-        (!config.selectors.length || document.getElementById("${selectors[0]?.domId}"));
-        
-      if (ready) { initSymbols(); } else { setTimeout(checkExist, 50); }
+        const ready =
+            (!config.pumps.length || document.getElementById(config.pumps[0]?.id)) &&
+            (!config.pits.length || document.getElementById(config.pits[0]?.id)) &&
+            (!config.ai_textb.length || document.getElementById(config.ai_textb[0]?.id)) &&
+            (!config.tfans.length || document.getElementById(config.tfans[0]?.id)) &&
+            (!config.selectors.length || document.getElementById(config.selectors[0]?.id)) &&
+            (!config.cbs.length || document.getElementById(config.cbs[0]?.id));
+
+        if (ready) { initSymbols(); } else { setTimeout(checkExist, 50); }
     };
     checkExist();
-  }
+}
 
-  if (document.readyState === "complete") { safeInit(); } else { window.addEventListener("load", safeInit); }
+if (document.readyState === "complete") { safeInit(); } else { window.addEventListener("load", safeInit); }
 
-  function refresh${sys}(pumps, pits, aiSymbols, tfanSymbols, selectorSymbols, PanelMode, PanelRemote, data, alarms) {
+function refresh${sys} (pumps, pits, aiSymbols, tfanSymbols, selectorSymbols, cbSymbols, PanelMode, PanelRemote, data, alarms) {
     if (!data || !alarms) return;
     try {
-      // console.log("Refresh ${sys} Triggered", data.points.length, "points");
-      config.pits.forEach((pConf, i) => {
-        if (pits[i]) {
-          const symLoc = pConf.loc || LOC;
-          const cls = pits[i].getVisualClass(data, alarms, symLoc);
-          pits[i].update(cls.pct, cls.visualClass);
-          pits[i].showOverride(cls.override);
-        }
-      });
-      config.pumps.forEach((pConf, i) => {
-        if (pumps[i]) {
-          const symLoc = pConf.loc || LOC;
-          const cls = pumps[i].getVisualClass(data, alarms, symLoc);
-          pumps[i].update(cls.visualClass);
-          pumps[i].showOverride((cls.run?.mo_i) || (cls.trip?.mo_i));
-        }
-      });
-      config.ai_textb?.forEach((pConf, i) => {
-        if (aiSymbols[i]) {
-          const symLoc = pConf.loc || LOC;
-          const cls = aiSymbols[i].getVisualClass(data, alarms, symLoc);
-          if (cls.value !== null) {
-            aiSymbols[i].update(cls.value, cls.limits, cls.decimals, cls.flash);
-            aiSymbols[i].showOverride(cls.override);
-          }
-        }
-      });
-      config.tfans?.forEach((pConf, i) => {
-        if (tfanSymbols[i]) {
-          const symLoc = pConf.loc || LOC;
-          const cls = tfanSymbols[i].getVisualClass(data, alarms, symLoc);
-          tfanSymbols[i].update(cls.visualClass);
-          tfanSymbols[i].showOverride((cls.run?.mo_i) || (cls.trip?.mo_i) || (cls.mode?.mo_i) || (cls.dir?.mo_i));
-        }
-      });
-      config.selectors?.forEach((sConf, i) => {
-          if (selectorSymbols[i]) {
-              const tagSuffix = sConf.type === 'mode' ? 'Panel.Mode' : 'Panel.LocalRemote';
-              const symLoc = sConf.loc || LOC;
-              const cls = selectorSymbols[i].getVisualClass(data, symLoc, tagSuffix);
-              if (cls.state) selectorSymbols[i].update(cls.state);
-              selectorSymbols[i].showOverride(cls.override);
-          }
-      });
+        config.cbs?.forEach((pConf, i) => {
+            if (cbSymbols[i]) {
+                const symLoc = pConf.loc || LOC;
+                const cls = cbSymbols[i].getVisualClass(data, alarms, symLoc);
+                cbSymbols[i].update(cls.visualClass);
+                cbSymbols[i].showOverride(cls.override);
+            }
+        });
+        config.pits.forEach((pConf, i) => {
+            if (pits[i]) {
+                const symLoc = pConf.loc || LOC;
+                const cls = pits[i].getVisualClass(data, alarms, symLoc);
+                pits[i].update(cls.pct, cls.visualClass);
+                pits[i].showOverride(cls.override);
+            }
+        });
+        config.pumps.forEach((pConf, i) => {
+            if (pumps[i]) {
+                const symLoc = pConf.loc || LOC;
+                const cls = pumps[i].getVisualClass(data, alarms, symLoc);
+                pumps[i].update(cls.visualClass);
+                pumps[i].showOverride((cls.run?.mo_i) || (cls.trip?.mo_i));
+            }
+        });
+        config.ai_textb?.forEach((pConf, i) => {
+            if (aiSymbols[i]) {
+                const symLoc = pConf.loc || LOC;
+                const cls = aiSymbols[i].getVisualClass(data, alarms, symLoc);
+                if (cls.value !== null) {
+                    aiSymbols[i].update(cls.value, cls.limits, cls.decimals, cls.flash);
+                    aiSymbols[i].showOverride(cls.override);
+                }
+            }
+        });
+        config.tfans?.forEach((pConf, i) => {
+            if (tfanSymbols[i]) {
+                const symLoc = pConf.loc || LOC;
+                const cls = tfanSymbols[i].getVisualClass(data, alarms, symLoc);
+                tfanSymbols[i].update(cls.visualClass);
+                tfanSymbols[i].showOverride((cls.run?.mo_i) || (cls.trip?.mo_i) || (cls.mode?.mo_i) || (cls.dir?.mo_i));
+            }
+        });
+        config.selectors?.forEach((sConf, i) => {
+            if (selectorSymbols[i]) {
+                const tagSuffix = sConf.type === 'mode' ? 'Panel.Mode' : 'Panel.LocalRemote';
+                const symLoc = sConf.loc || LOC;
+                const cls = selectorSymbols[i].getVisualClass(data, symLoc, tagSuffix);
+                if (cls.state) selectorSymbols[i].update(cls.state);
+                selectorSymbols[i].showOverride(cls.override);
+            }
+        });
     } catch (err) { console.error("Error in refresh${sys}:", err); }
-  }
+}
 
-  function initSymbols() {
+function initSymbols() {
     const initTasks = [];
 
     ${pumps.map(p => `
@@ -1313,7 +1219,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loc: "${p.loc || loc}",
         noAutoRefresh: true,
         doc: document
-    }));`).join('')}
+    }));`).join('')
+            }
 
     ${pits.map(p => `
     initTasks.push(Symbols.Pit.init('${p.domId}', {
@@ -1322,7 +1229,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loc: "${p.loc || loc}",
         noAutoRefresh: true,
         doc: document
-    }));`).join('')}
+    }));`).join('')
+            }
 
     const aiSymbols = [];
     ${ai_textb.map((p, i) => `
@@ -1332,7 +1240,8 @@ document.addEventListener('DOMContentLoaded', () => {
           noAutoRefresh: true,
           doc: document
         }).then(api => { aiSymbols[${i}] = api; return api; })
-    );`).join('')}
+    );`).join('')
+            }
 
     const tfanSymbols = [];
     ${tfans.map((p, i) => `
@@ -1344,7 +1253,8 @@ document.addEventListener('DOMContentLoaded', () => {
           noAutoRefresh: true,
           doc: document
         }).then(api => { tfanSymbols[${i}] = api; return api; })
-    );`).join('')}
+    );`).join('')
+            }
 
     const selectorSymbols = [];
     ${selectors.map((s, i) => `
@@ -1357,87 +1267,95 @@ document.addEventListener('DOMContentLoaded', () => {
           loc: "${s.loc || loc}",
           doc: document
         }).then(api => { selectorSymbols[${i}] = api; return api; })
-    );`).join('')}
+    );`).join('')
+            }
+
+    console.log("Initializing CBs:", config.cbs.length);
+    const cbTasks = config.cbs.map(c => Symbols.CB.init(c.id, { equipKey: c.equipKey, loc: c.loc, faceplate: c.faceplate, doc: document }));
+    initTasks.push(...cbTasks);
 
     Promise.all(initTasks).then(symbols => {
-      let offset = 0;
-      const pumpSymbols = symbols.slice(offset, offset + ${pumps.length}); offset += ${pumps.length};
-      const pitSymbols = symbols.slice(offset, offset + ${pits.length}); offset += ${pits.length};
-      const aiSyms = symbols.slice(offset, offset + ${ai_textb.length}); offset += ${ai_textb.length};
-      const tfanSyms = symbols.slice(offset, offset + ${tfans.length}); offset += ${tfans.length};
-      const selSyms = symbols.slice(offset, offset + ${selectors.length});
+        let offset = 0;
+        const pumpSymbols = symbols.slice(offset, offset + ${pumps.length}); offset += ${pumps.length};
+        const pitSymbols = symbols.slice(offset, offset + ${pits.length}); offset += ${pits.length};
+        const aiSyms = symbols.slice(offset, offset + ${ai_textb.length}); offset += ${ai_textb.length};
+        const tfanSyms = symbols.slice(offset, offset + ${tfans.length}); offset += ${tfans.length};
+        const selSyms = symbols.slice(offset, offset + ${selectors.length}); offset += ${selectors.length};
+        const cbSyms = symbols.slice(offset, offset + ${cbs.length}); // Correct offset
 
-      const PanelMode = { getVisualClass: () => ({}), update: () => {}, showOverride: () => {} };
-      const PanelRemote = { getVisualClass: () => ({}), update: () => {}, showOverride: () => {} };
+        const PanelMode = { getVisualClass: () => ({}), update: () => { }, showOverride: () => { } };
+        const PanelRemote = { getVisualClass: () => ({}), update: () => { }, showOverride: () => { } };
 
-      if (Core.Highlight) {
-        registerInitialHighlights();
-        Core.Highlight.equipIfPending();
-      }
+        if (Core.Highlight) {
+            registerInitialHighlights();
+            Core.Highlight.equipIfPending();
+        }
 
-      const sm = SCADA?.Core?.SocketManager;
-      if (sm) {
-        let cachedPoints = {};
-        let cachedAlarms = [];
+        const sm = SCADA?.Core?.SocketManager;
+        if (sm) {
+            let cachedPoints = {};
+            let cachedAlarms = [];
 
-        const handleSystemUpdate = (msg) => {
-          if (msg.alarms) {
-            cachedAlarms = Array.isArray(msg.alarms) ? msg.alarms : Object.values(msg.alarms);
-            if (msg.type === 'alarms' || msg.type === 'alarm') {
-              const data = { points: Object.values(cachedPoints) };
-              refresh${sys}(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
-              return;
-            }
-          }
+            const handleSystemUpdate = (msg) => {
+                if (msg.alarms) {
+                    cachedAlarms = Array.isArray(msg.alarms) ? msg.alarms : Object.values(msg.alarms);
+                    if (msg.type === 'alarms' || msg.type === 'alarm') {
+                        const data = { points: Object.values(cachedPoints) };
+              refresh${sys} (pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, cbSyms, PanelMode, PanelRemote, data, cachedAlarms);
+                        return;
+                    }
+                }
 
-          if (msg.type === 'snapshot' && msg.points) {
-            Object.assign(cachedPoints, msg.points);
-            const data = { points: Object.values(cachedPoints) };
-            refresh${sys}(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
-          }
-          else if (msg.type === 'update' && msg.diffs?.points) {
-            if (msg.diffs.points.changed) Object.assign(cachedPoints, msg.diffs.points.changed);
-            if (msg.diffs.points.removed) msg.diffs.points.removed.forEach(key => delete cachedPoints[key]);
-            
-            const data = { points: Object.values(cachedPoints) };
-            refresh${sys}(pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, PanelMode, PanelRemote, data, cachedAlarms);
-          }
-        };
+                if (msg.type === 'snapshot' && msg.points) {
+                    Object.assign(cachedPoints, msg.points);
+                    const data = { points: Object.values(cachedPoints) };
+            refresh${sys} (pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, cbSyms, PanelMode, PanelRemote, data, cachedAlarms);
+                }
+                else if (msg.type === 'update' && msg.diffs?.points) {
+                    if (msg.diffs.points.changed) Object.assign(cachedPoints, msg.diffs.points.changed);
+                    if (msg.diffs.points.removed) msg.diffs.points.removed.forEach(key => delete cachedPoints[key]);
+
+                    const data = { points: Object.values(cachedPoints) };
+            refresh${sys} (pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, cbSyms, PanelMode, PanelRemote, data, cachedAlarms);
+                }
+            };
 
         ${(() => {
                 const locs = new Set([loc]);
-                [...pumps, ...pits, ...ai_textb, ...tfans, ...selectors].forEach(p => { if (p.loc) locs.add(p.loc); });
+                [...pumps, ...pits, ...ai_textb, ...tfans, ...selectors, ...cbs].forEach(p => { if (p.loc) locs.add(p.loc); });
                 return Array.from(locs).map(l => `sm.subscribe('system:${l}', handleSystemUpdate);`).join('\n        ');
-            })()}
-        
-        sm.subscribe('alarms', handleSystemUpdate);
+            })()
+            }
 
-        const scope = \`system:\${LOC}\`;
-        sm.subscribe(scope, handleSystemUpdate); 
+            sm.subscribe('alarms', handleSystemUpdate);
 
-        window.addEventListener('beforeunload', () => {
-          try {
+            const scope = 'system: ' + LOC;
+            sm.subscribe(scope, handleSystemUpdate);
+
+            window.addEventListener('beforeunload', () => {
+                try {
              ${(() => {
                 const locs = new Set([loc]);
-                [...pumps, ...pits, ...ai_textb, ...tfans, ...selectors].forEach(p => { if (p.loc) locs.add(p.loc); });
+                [...pumps, ...pits, ...ai_textb, ...tfans, ...selectors, ...cbs].forEach(p => { if (p.loc) locs.add(p.loc); });
                 return Array.from(locs).map(l => `sm.unsubscribe('system:${l}', handleSystemUpdate);`).join('\n             ');
-            })()}
-            sm.unsubscribe('alarms', handleSystemUpdate);
-            sm.unsubscribe('events', handleSystemUpdate);
-          } catch (e) { }
-        });
-      }
+            })()
+            }
+                    sm.unsubscribe('alarms', handleSystemUpdate);
+                    sm.unsubscribe('events', handleSystemUpdate);
+                } catch (e) { }
+            });
+        }
     });
 
     console.log("✅ Mimic loaded");
     if (window.parent) { window.parent.postMessage({ type: "mimicReady" }, "*"); }
-  }
+}
 `;
 
         const styleContent = `
         body { margin: 0; padding: 0; background: #ffffff; overflow: hidden; font-family: 'Segoe UI', sans-serif; user-select: none; }
         .symbol-container { position: absolute; }
-        .pump-container, .pit-container, .selector-container, .ai_textb-container, .tfan-container { cursor: pointer; }
+        .pump-container, .pit-container, .selector-container, .ai_textb-container, .tfan-container, .CB-container { cursor: pointer; }
         ${hasBackground ? `
         /* Zoom Container */
         #zoom-container { position: relative; width: 100vw; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #fff; cursor: default; }
@@ -1464,35 +1382,36 @@ document.addEventListener('DOMContentLoaded', () => {
         ` : `
         #mimic-container { position:relative; width:100%; height:100%; }
         `}
-        `;
+`;
 
         const bodyContent = hasBackground ? `
-<div id="zoom-container">
-    <div id="mimic-wrapper">
-        ${elementsHTML}
+    <div id="zoom-container">
+        <div id="mimic-wrapper">
+            ${elementsHTML}
+        </div>
     </div>
-</div>
-<div id="zoom-controls">
-    <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
-    <button class="zoom-btn" onclick="zoomReset()" title="Reset">1:1</button>
-    <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">-</button>
-</div>` : `<div id="mimic-container">${elementsHTML}</div>`;
+    <div id="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
+        <button class="zoom-btn" onclick="zoomReset()" title="Reset">1:1</button>
+        <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">-</button>
+    </div>` : `<div id="mimic-container">${elementsHTML}</div>`;
 
         const zoomScript = hasBackground ? `
-    // --- Zoom & Pan Logic ---
-    const wrapper = document.getElementById('mimic-wrapper');
-    const container = document.getElementById('zoom-container');
-    let scale = 1; let panX = 0; let panY = 0;
-    
-    function centerView() {
-        if (!container || !wrapper) return;
-        const cw = container.clientWidth; const ch = container.clientHeight;
-        const ww = ${w}; const wh = ${h};
-        panX = (cw - ww * scale) / 2; panY = (ch - wh * scale) / 2;
-        updateTransform();
-    }
-    window.onload = function() { centerView(); };
-    function updateTransform() { if (wrapper) wrapper.style.transform = \`translate(\${panX}px, \${panY}px) scale(\${scale})\`; }
+// --- Zoom & Pan Logic ---
+const wrapper = document.getElementById('mimic-wrapper');
+const container = document.getElementById('zoom-container');
+let scale = 1; let panX = 0; let panY = 0;
+
+function centerView() {
+    if (!container || !wrapper) return;
+    const cw = container.clientWidth; const ch = container.clientHeight;
+    const ww = ${w}; const wh = ${h};
+    panX = (cw - ww * scale) / 2; panY = (ch - wh * scale) / 2;
+    updateTransform();
+}
+window.onload = function () { centerView(); };
+function updateTransform() {
+    if (wrapper) wrapper.style.transform = \`translate(\${panX}px, \${panY}px) scale(\${scale})\`; }
     window.zoomIn = function() { const cx = container.clientWidth / 2; const cy = container.clientHeight / 2; zoomToPoint(1.2, cx, cy); };
     window.zoomOut = function() { const cx = container.clientWidth / 2; const cy = container.clientHeight / 2; zoomToPoint(1/1.2, cx, cy); };
     window.zoomReset = function() { scale = 1; centerView(); };
@@ -1525,7 +1444,6 @@ document.addEventListener('DOMContentLoaded', () => {
 </body>
 </html>`;
     }
-
     function handleFileLoad(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -1627,6 +1545,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (inner.classList.contains('pit-container')) { type = 'symbol'; props.symbol = 'pit'; }
                 else if (inner.classList.contains('ai_textb-container')) { type = 'symbol'; props.symbol = 'ai_textb'; }
                 else if (inner.classList.contains('tfan-container')) { type = 'symbol'; props.symbol = 'tfan'; }
+                else if (inner.classList.contains('CB-container')) { type = 'symbol'; props.symbol = 'CB'; }
                 else if (inner.classList.contains('selector-container')) {
                     type = 'symbol';
                     // Determine sub-type
@@ -2021,15 +1940,45 @@ document.addEventListener('DOMContentLoaded', () => {
             const navRemoveLocBtn = document.getElementById('navRemoveLocBtn');
             if (navRemoveLocBtn) navRemoveLocBtn.disabled = !activeLoc;
 
-            (tempNavData.locations || []).forEach(loc => {
+            (tempNavData.locations || []).forEach((loc, index) => {
                 const li = document.createElement('li');
                 li.className = 'nav-item';
                 li.innerHTML = `<span class="nav-item-title">${loc.name}</span> <span class="nav-item-subtitle">(${loc.id})</span>`;
                 if (activeLoc && activeLoc.id === loc.id) li.classList.add('selected');
+
+                // Drag & Drop
+                li.draggable = true;
+                li.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'loc', index }));
+                    li.classList.add('dragging');
+                });
+                li.addEventListener('dragend', () => li.classList.remove('dragging'));
+                li.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    li.classList.add('drag-over');
+                });
+                li.addEventListener('dragleave', () => li.classList.remove('drag-over'));
+                li.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    li.classList.remove('drag-over');
+                    try {
+                        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                        if (data.type !== 'loc') return;
+                        const fromIndex = data.index;
+                        const toIndex = index;
+                        if (fromIndex === toIndex) return;
+                        const movedItem = tempNavData.locations.splice(fromIndex, 1)[0];
+                        tempNavData.locations.splice(toIndex, 0, movedItem);
+                        renderNavManager();
+                    } catch (err) { console.error(err); }
+                });
+
                 li.addEventListener('click', () => {
                     activeLoc = loc;
                     activeSys = null;
-                    activePage = null; // Reset page selection
+                    activePage = null;
                     renderNavManager();
                 });
                 listLoc.appendChild(li);
@@ -2046,21 +1995,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!activeLoc) return;
 
-            (activeLoc.systems || []).forEach(sys => {
+            (activeLoc.systems || []).forEach((sys, index) => {
                 const li = document.createElement('li');
                 li.className = 'nav-item';
                 li.innerHTML = `<span class="nav-item-title">${sys.name}</span> <span class="nav-item-subtitle">(${sys.id})</span>`;
                 if (activeSys && activeSys.id === sys.id) li.classList.add('selected');
+
+                // Drag & Drop
+                li.draggable = true;
+                li.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'sys', index }));
+                    li.classList.add('dragging');
+                });
+                li.addEventListener('dragend', () => li.classList.remove('dragging'));
+                li.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    li.classList.add('drag-over');
+                });
+                li.addEventListener('dragleave', () => li.classList.remove('drag-over'));
+                li.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    li.classList.remove('drag-over');
+                    try {
+                        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                        if (data.type !== 'sys') return;
+                        const fromIndex = data.index;
+                        const toIndex = index;
+                        if (fromIndex === toIndex) return;
+                        const movedItem = activeLoc.systems.splice(fromIndex, 1)[0];
+                        activeLoc.systems.splice(toIndex, 0, movedItem);
+                        renderNavManager();
+                    } catch (err) { console.error(err); }
+                });
+
                 li.addEventListener('click', () => {
                     activeSys = sys;
-                    activePage = null; // Reset page selection
+                    activePage = null;
                     renderPageList();
-                    // Re-highlight sys
                     const all = listSys.querySelectorAll('li');
                     all.forEach(x => x.classList.remove('selected'));
                     li.classList.add('selected');
-
-                    // Enable remove button
                     const btn = document.getElementById('navRemoveSysBtn');
                     if (btn) btn.disabled = false;
                 });
@@ -2080,7 +2056,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!activeSys) return;
 
-            (activeSys.pages || []).forEach(pg => {
+            (activeSys.pages || []).forEach((pg, index) => {
                 const li = document.createElement('li');
                 li.className = 'nav-item';
                 li.innerHTML = `<span class="nav-item-title">${pg.title}</span> <span class="nav-item-subtitle">(${pg.file})</span>`;
@@ -2088,6 +2064,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (activePage && activePage.file === pg.file) {
                     li.classList.add('selected');
                 }
+
+                // Drag & Drop
+                li.draggable = true;
+                li.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'page', index }));
+                    li.classList.add('dragging');
+                });
+                li.addEventListener('dragend', () => li.classList.remove('dragging'));
+                li.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    li.classList.add('drag-over');
+                });
+                li.addEventListener('dragleave', () => li.classList.remove('drag-over'));
+                li.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    li.classList.remove('drag-over');
+                    try {
+                        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                        if (data.type !== 'page') return;
+                        const fromIndex = data.index;
+                        const toIndex = index;
+                        if (fromIndex === toIndex) return;
+                        const movedItem = activeSys.pages.splice(fromIndex, 1)[0];
+                        activeSys.pages.splice(toIndex, 0, movedItem);
+                        renderNavManager();
+                    } catch (err) { console.error(err); }
+                });
 
                 li.addEventListener('click', () => {
                     activePage = pg;

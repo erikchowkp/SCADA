@@ -136,6 +136,14 @@ Now registered under SCADA.UI.Faceplate.
         const closeFb = points.find(p => p.tag.includes("CloseFb"));
         if (openFb && openFb.value === 1) state = "Open";
         else if (closeFb && closeFb.value === 1) state = "Closed";
+      } else if (faceplateType === "CB") {
+        const status = points.find(p => p.tag.includes("Status"));
+        if (status) {
+          if (status.value == 1) state = "Closed";
+          else if (status.value == 2) state = "Open";
+          else if (status.value == 3) state = "DAC";
+          else state = "Transit";
+        }
       } else if (faceplateType === "SPP") {
         const mode = points.find(p => p.tag.includes("Mode"));
         const remote = points.find(p => p.tag.includes("LocalRemote"));
@@ -197,10 +205,15 @@ Now registered under SCADA.UI.Faceplate.
             indicator.className = "fp-indicator";
             const alarm = alarms.find(a => a.tag === pt.tag && a.loc === pt.loc);
 
-            if (pt.value == 1 && (pt.crit1 ?? 0) > 0) {
-              if (pt.crit1 === 3) indicator.classList.add(alarm && !alarm.ack ? "blink-red" : "alarm-red");
-              else if (pt.crit1 === 2) indicator.classList.add(alarm && !alarm.ack ? "blink-orange" : "alarm-orange");
-              else if (pt.crit1 === 1) indicator.classList.add(alarm && !alarm.ack ? "blink-yellow" : "alarm-yellow");
+            if ((pt.value == 1 && (pt.crit1 ?? 0) > 0) || (pt.value == 2 && (pt.crit2 ?? 0) > 0) || (pt.value == 3 && (pt.crit3 ?? 0) > 0)) {
+              let crit = 0;
+              if (pt.value == 1) crit = pt.crit1;
+              else if (pt.value == 2) crit = pt.crit2;
+              else if (pt.value == 3) crit = pt.crit3;
+
+              if (crit === 3) indicator.classList.add(alarm && !alarm.ack ? "blink-red" : "alarm-red");
+              else if (crit === 2) indicator.classList.add(alarm && !alarm.ack ? "blink-orange" : "alarm-orange");
+              else if (crit === 1) indicator.classList.add(alarm && !alarm.ack ? "blink-yellow" : "alarm-yellow");
             } else {
               if (alarm && alarm.state === "Cleared" && !alarm.ack) {
                 indicator.classList.add("blink-green");
@@ -219,7 +232,11 @@ Now registered under SCADA.UI.Faceplate.
               ? "--"
               : val.toFixed(pt.decimals ?? 2) + (pt.unit ? " " + pt.unit : "");
           } else {
-            valueText.innerText = (pt.value == 1 ? pt.state1 || "On" : pt.state0 || "Off");
+            if (pt.value == 0) valueText.innerText = pt.state0 || "Off";
+            else if (pt.value == 1) valueText.innerText = pt.state1 || "On";
+            else if (pt.value == 2) valueText.innerText = pt.state2 || "State2";
+            else if (pt.value == 3) valueText.innerText = pt.state3 || "State3";
+            else valueText.innerText = String(pt.value);
           }
           valueRow.appendChild(valueText);
 
@@ -392,6 +409,33 @@ Now registered under SCADA.UI.Faceplate.
 
           wrapper.appendChild(btns);
           controlTab.appendChild(wrapper);
+
+        } else if (faceplateType === "CB") {
+          const wrapper = document.createElement("div");
+          const label = document.createElement("div");
+          label.innerText = "Breaker Control:";
+          label.style.fontWeight = "bold";
+          wrapper.appendChild(label);
+
+          const closeBtn = document.createElement("button");
+          closeBtn.innerText = "Close";
+          closeBtn.onclick = () => SCADA.Core.sendCmd(points[0].label + ".ClsCmd", 1);
+
+          const openBtn = document.createElement("button");
+          openBtn.innerText = "Open";
+          openBtn.onclick = () => SCADA.Core.sendCmd(points[0].label + ".OpnCmd", 1);
+
+
+          const btns = document.createElement("div");
+          btns.style.marginLeft = "14px";
+          btns.style.display = "flex";
+          btns.style.flexDirection = "row";
+          btns.style.gap = "10px";
+          btns.appendChild(closeBtn);
+          btns.appendChild(openBtn);
+
+          wrapper.appendChild(btns);
+          controlTab.appendChild(wrapper);
         }
       }
 
@@ -489,6 +533,18 @@ Now registered under SCADA.UI.Faceplate.
             opt1.textContent = pt.state1 || "State1";
             sel.appendChild(opt0);
             sel.appendChild(opt1);
+            if ("state2" in pt) {
+              const opt2 = document.createElement("option");
+              opt2.value = "2";
+              opt2.textContent = pt.state2 || "State2";
+              sel.appendChild(opt2);
+            }
+            if ("state3" in pt) {
+              const opt3 = document.createElement("option");
+              opt3.value = "3";
+              opt3.textContent = pt.state3 || "State3";
+              sel.appendChild(opt3);
+            }
             sel.value = String(pt.value);
             valBox.appendChild(sel);
           }

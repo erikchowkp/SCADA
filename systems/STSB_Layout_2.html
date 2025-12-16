@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>test</title>
+    <style>
+        body { margin: 0; padding: 0; background: #ffffff; overflow: hidden; font-family: 'Segoe UI', sans-serif; user-select: none; }
+        .symbol-container { position: absolute; }
+        .pump-container, .pit-container, .selector-container, .ai_textb-container, .tfan-container, .CB-container { cursor: pointer; }
+        
+        /* Zoom Container */
+        #zoom-container { position: relative; width: 100vw; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #fff; cursor: default; }
+        .dragging { cursor: grabbing !important; }
+        
+        #mimic-wrapper { 
+            position: absolute; top: 0; left: 0;
+            width: 3100px; height: 1100px; 
+            background-color: #fff; box-shadow: none;
+            transform-origin: 0 0; transition: none; 
+            background-image: url('/layout/tunnel_road_1.svg'); 
+            background-size: cover; background-repeat: no-repeat;
+        }
+        
+        #zoom-controls {
+            position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 5px;
+        }
+        .zoom-btn {
+            width: 36px; height: 36px; background: #444; color: #fff; border: 1px solid #666; 
+            border-radius: 4px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;
+        }
+        .zoom-btn:hover { background: #666; }
+        
+</style>
+</head>
+<body>
+    
+    <div id="zoom-container">
+        <div id="mimic-wrapper">
+            
+        </div>
+    </div>
+    <div id="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
+        <button class="zoom-btn" onclick="zoomReset()" title="Reset">1:1</button>
+        <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">-</button>
+    </div>
+    <script>
+        const LOC = "STSB";
+        const SYS = "Layout";
+
+        const config = {
+            pits: [],
+    pumps: [],
+    ai_textb: [],
+    tfans: [],
+    selectors: [] ,
+    cbs: [],
+};
+
+window.SCADA = window.parent.SCADA;
+const Core = window.SCADA.Core;
+const Symbols = window.SCADA.Symbols;
+
+function registerInitialHighlights() {
+    if (!Core.Highlight) return;
+    const mapId = id => document.getElementById(id);
+    
+    
+    
+    
+    
+    
+    
+
+    Core.Highlight.equipIfPending();
+}
+
+function safeInit() {
+    const checkExist = () => {
+        const ready =
+            (!config.pumps.length || document.getElementById(config.pumps[0]?.id)) &&
+            (!config.pits.length || document.getElementById(config.pits[0]?.id)) &&
+            (!config.ai_textb.length || document.getElementById(config.ai_textb[0]?.id)) &&
+            (!config.tfans.length || document.getElementById(config.tfans[0]?.id)) &&
+            (!config.selectors.length || document.getElementById(config.selectors[0]?.id)) &&
+            (!config.cbs.length || document.getElementById(config.cbs[0]?.id));
+
+        if (ready) { initSymbols(); } else { setTimeout(checkExist, 50); }
+    };
+    checkExist();
+}
+
+if (document.readyState === "complete") { safeInit(); } else { window.addEventListener("load", safeInit); }
+
+function refreshLayout (pumps, pits, aiSymbols, tfanSymbols, selectorSymbols, cbSymbols, PanelMode, PanelRemote, data, alarms) {
+    if (!data || !alarms) return;
+    try {
+        config.cbs?.forEach((pConf, i) => {
+            if (cbSymbols[i]) {
+                const symLoc = pConf.loc || LOC;
+                const cls = cbSymbols[i].getVisualClass(data, alarms, symLoc);
+                cbSymbols[i].update(cls.visualClass);
+                cbSymbols[i].showOverride(cls.override);
+            }
+        });
+        config.pits.forEach((pConf, i) => {
+            if (pits[i]) {
+                const symLoc = pConf.loc || LOC;
+                const cls = pits[i].getVisualClass(data, alarms, symLoc);
+                pits[i].update(cls.pct, cls.visualClass);
+                pits[i].showOverride(cls.override);
+            }
+        });
+        config.pumps.forEach((pConf, i) => {
+            if (pumps[i]) {
+                const symLoc = pConf.loc || LOC;
+                const cls = pumps[i].getVisualClass(data, alarms, symLoc);
+                pumps[i].update(cls.visualClass);
+                pumps[i].showOverride((cls.run?.mo_i) || (cls.trip?.mo_i));
+            }
+        });
+        config.ai_textb?.forEach((pConf, i) => {
+            if (aiSymbols[i]) {
+                const symLoc = pConf.loc || LOC;
+                const cls = aiSymbols[i].getVisualClass(data, alarms, symLoc);
+                if (cls.value !== null) {
+                    aiSymbols[i].update(cls.value, cls.limits, cls.decimals, cls.flash);
+                    aiSymbols[i].showOverride(cls.override);
+                }
+            }
+        });
+        config.tfans?.forEach((pConf, i) => {
+            if (tfanSymbols[i]) {
+                const symLoc = pConf.loc || LOC;
+                const cls = tfanSymbols[i].getVisualClass(data, alarms, symLoc);
+                tfanSymbols[i].update(cls.visualClass);
+                tfanSymbols[i].showOverride((cls.run?.mo_i) || (cls.trip?.mo_i) || (cls.mode?.mo_i) || (cls.dir?.mo_i));
+            }
+        });
+        config.selectors?.forEach((sConf, i) => {
+            if (selectorSymbols[i]) {
+                const tagSuffix = sConf.type === 'mode' ? 'Panel.Mode' : 'Panel.LocalRemote';
+                const symLoc = sConf.loc || LOC;
+                const cls = selectorSymbols[i].getVisualClass(data, symLoc, tagSuffix);
+                if (cls.state) selectorSymbols[i].update(cls.state);
+                selectorSymbols[i].showOverride(cls.override);
+            }
+        });
+    } catch (err) { console.error("Error in refreshLayout:", err); }
+}
+
+function initSymbols() {
+    const initTasks = [];
+
+    
+
+    
+
+    const aiSymbols = [];
+    
+
+    const tfanSymbols = [];
+    
+
+    const selectorSymbols = [];
+    
+
+    console.log("Initializing CBs:", config.cbs.length);
+    const cbTasks = config.cbs.map(c => Symbols.CB.init(c.id, { equipKey: c.equipKey, loc: c.loc, faceplate: c.faceplate, doc: document }));
+    initTasks.push(...cbTasks);
+
+    Promise.all(initTasks).then(symbols => {
+        let offset = 0;
+        const pumpSymbols = symbols.slice(offset, offset + 0); offset += 0;
+        const pitSymbols = symbols.slice(offset, offset + 0); offset += 0;
+        const aiSyms = symbols.slice(offset, offset + 0); offset += 0;
+        const tfanSyms = symbols.slice(offset, offset + 0); offset += 0;
+        const selSyms = symbols.slice(offset, offset + 0); offset += 0;
+        const cbSyms = symbols.slice(offset, offset + 0); // Correct offset
+
+        const PanelMode = { getVisualClass: () => ({}), update: () => { }, showOverride: () => { } };
+        const PanelRemote = { getVisualClass: () => ({}), update: () => { }, showOverride: () => { } };
+
+        if (Core.Highlight) {
+            registerInitialHighlights();
+            Core.Highlight.equipIfPending();
+        }
+
+        const sm = SCADA?.Core?.SocketManager;
+        if (sm) {
+            let cachedPoints = {};
+            let cachedAlarms = [];
+
+            const handleSystemUpdate = (msg) => {
+                if (msg.alarms) {
+                    cachedAlarms = Array.isArray(msg.alarms) ? msg.alarms : Object.values(msg.alarms);
+                    if (msg.type === 'alarms' || msg.type === 'alarm') {
+                        const data = { points: Object.values(cachedPoints) };
+              refreshLayout (pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, cbSyms, PanelMode, PanelRemote, data, cachedAlarms);
+                        return;
+                    }
+                }
+
+                if (msg.type === 'snapshot' && msg.points) {
+                    Object.assign(cachedPoints, msg.points);
+                    const data = { points: Object.values(cachedPoints) };
+            refreshLayout (pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, cbSyms, PanelMode, PanelRemote, data, cachedAlarms);
+                }
+                else if (msg.type === 'update' && msg.diffs?.points) {
+                    if (msg.diffs.points.changed) Object.assign(cachedPoints, msg.diffs.points.changed);
+                    if (msg.diffs.points.removed) msg.diffs.points.removed.forEach(key => delete cachedPoints[key]);
+
+                    const data = { points: Object.values(cachedPoints) };
+            refreshLayout (pumpSymbols, pitSymbols, aiSyms, tfanSyms, selSyms, cbSyms, PanelMode, PanelRemote, data, cachedAlarms);
+                }
+            };
+
+        sm.subscribe('system:STSB', handleSystemUpdate);
+
+            sm.subscribe('alarms', handleSystemUpdate);
+
+            const scope = 'system: ' + LOC;
+            sm.subscribe(scope, handleSystemUpdate);
+
+            window.addEventListener('beforeunload', () => {
+                try {
+             sm.unsubscribe('system:STSB', handleSystemUpdate);
+                    sm.unsubscribe('alarms', handleSystemUpdate);
+                    sm.unsubscribe('events', handleSystemUpdate);
+                } catch (e) { }
+            });
+        }
+    });
+
+    console.log("✅ Mimic loaded");
+    if (window.parent) { window.parent.postMessage({ type: "mimicReady" }, "*"); }
+}
+
+// --- Zoom & Pan Logic ---
+const wrapper = document.getElementById('mimic-wrapper');
+const container = document.getElementById('zoom-container');
+let scale = 1; let panX = 0; let panY = 0;
+
+function centerView() {
+    if (!container || !wrapper) return;
+    const cw = container.clientWidth; const ch = container.clientHeight;
+    const ww = 3100; const wh = 1100;
+    panX = (cw - ww * scale) / 2; panY = (ch - wh * scale) / 2;
+    updateTransform();
+}
+window.onload = function () { centerView(); };
+function updateTransform() {
+    if (wrapper) wrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`; }
+    window.zoomIn = function() { const cx = container.clientWidth / 2; const cy = container.clientHeight / 2; zoomToPoint(1.2, cx, cy); };
+    window.zoomOut = function() { const cx = container.clientWidth / 2; const cy = container.clientHeight / 2; zoomToPoint(1/1.2, cx, cy); };
+    window.zoomReset = function() { scale = 1; centerView(); };
+    function zoomToPoint(factor, cx, cy) {
+        const newScale = scale * factor;
+        if (newScale < 0.1 || newScale > 10) return;
+        const worldX = (cx - panX) / scale; const worldY = (cy - panY) / scale;
+        panX = cx - worldX * newScale; panY = cy - worldY * newScale;
+        scale = newScale; updateTransform();
+    }
+    if (container) {
+        container.addEventListener('wheel', (e) => { e.preventDefault(); zoomToPoint(e.deltaY < 0 ? 1.05 : 0.95, e.clientX, e.clientY); }, { passive: false });
+        let isDragging = false; let lastX = 0; let lastY = 0;
+        container.addEventListener('mousedown', (e) => { if (e.button === 1) { isDragging = true; container.classList.add('dragging'); lastX = e.clientX; lastY = e.clientY; e.preventDefault(); } });
+        window.addEventListener('mousemove', (e) => { if (isDragging) { const dx = e.clientX - lastX; const dy = e.clientY - lastY; panX += dx; panY += dy; lastX = e.clientX; lastY = e.clientY; updateTransform(); } });
+        window.addEventListener('mouseup', () => { isDragging = false; container.classList.remove('dragging'); });
+    }
+</script>
+</body>
+</html>
